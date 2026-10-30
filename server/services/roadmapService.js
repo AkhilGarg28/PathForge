@@ -1,35 +1,16 @@
 /**
  * Pure helper functions and operations for Roadmap management
  */
+const { calculateReadiness } = require('./readinessService');
 
 /**
  * Calculates readiness percentage (0-100) weighted by estimatedHours.
  *
- * @param {Array<{estimatedHours: number, status: string}>} modules
+ * @param {Array<{estimatedHours?: number, status: string}>} modules
  * @returns {number} readinessScore (0-100)
  */
 const calculateWeightedReadiness = (modules) => {
-  if (!Array.isArray(modules) || modules.length === 0) return 0;
-
-  let totalHours = 0;
-  let completedHours = 0;
-
-  modules.forEach((mod) => {
-    const hours = Number(mod.estimatedHours) || 0;
-    totalHours += hours;
-    if (mod.status === 'complete') {
-      completedHours += hours;
-    }
-  });
-
-  if (totalHours === 0) {
-    const totalCount = modules.length;
-    const completedCount = modules.filter((m) => m.status === 'complete').length;
-    return Math.round((completedCount / totalCount) * 100);
-  }
-
-  const percentage = (completedHours / totalHours) * 100;
-  return Math.round(percentage);
+  return calculateReadiness(modules);
 };
 
 /**
@@ -52,10 +33,10 @@ const advanceModuleStatus = (modules, targetModuleId) => {
 
   const targetModule = modules[moduleIndex];
   if (targetModule.status === 'complete') {
-    return { error: 'Module is already complete', code: 409 };
+    return { error: 'Module is already complete', code: 400 };
   }
   if (targetModule.status !== 'active') {
-    return { error: 'Module is not active', code: 409 };
+    return { error: 'Module is not active', code: 400 };
   }
 
   // Clone modules to preserve purity

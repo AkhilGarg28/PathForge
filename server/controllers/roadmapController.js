@@ -1,8 +1,16 @@
+const { z } = require('zod');
 const Roadmap = require('../models/Roadmap');
 const {
   calculateWeightedReadiness,
   advanceModuleStatus,
 } = require('../services/roadmapService');
+
+const moduleIdParamSchema = z.object({
+  moduleId: z
+    .string({ required_error: 'moduleId is required' })
+    .trim()
+    .min(1, 'moduleId cannot be empty'),
+});
 
 const getActiveRoadmap = async (req, res, next) => {
   try {
@@ -24,8 +32,19 @@ const getActiveRoadmap = async (req, res, next) => {
 
 const completeModule = async (req, res, next) => {
   try {
+    const parseResult = moduleIdParamSchema.safeParse(req.params);
+    if (!parseResult.success) {
+      return res.status(400).json({
+        message: parseResult.error.errors[0]?.message || 'Invalid moduleId parameter',
+        errors: parseResult.error.errors.map((e) => ({
+          field: e.path.join('.'),
+          message: e.message,
+        })),
+      });
+    }
+
+    const { moduleId } = parseResult.data;
     const userId = req.user._id || req.user.id;
-    const { moduleId } = req.params;
 
     const roadmap = await Roadmap.findOne({
       userId,

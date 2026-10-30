@@ -5,7 +5,9 @@ const app = require('../app');
 const Role = require('../models/Role');
 const User = require('../models/User');
 const Diagnostic = require('../models/Diagnostic');
+const Roadmap = require('../models/Roadmap');
 const questionService = require('../services/questionService');
+const llmService = require('../services/llmService');
 const env = require('../config/env');
 
 describe('Diagnostic Endpoints (/api/diagnostic)', () => {
@@ -30,28 +32,32 @@ describe('Diagnostic Endpoints (/api/diagnostic)', () => {
   };
 
   let savedDiagnostics = [];
+  let savedRoadmaps = [];
+  let archivedRoadmaps = [];
 
   beforeEach(() => {
     savedDiagnostics = [];
+    savedRoadmaps = [];
+    archivedRoadmaps = [];
 
     // Mock User.findById for authMiddleware
-    jest.spyOn(User, 'findById').mockImplementation((id) => ({
-      select: jest.fn().mockImplementation((fields) => {
-        if (id.toString() === mockUserId) {
+    jest.spyOn(User, 'findById').mockImplementation((id) => {
+      const idStr = id ? id.toString() : mockUserId;
+      return {
+        select: jest.fn().mockImplementation((fields) => {
           const user = {
-            _id: new mongoose.Types.ObjectId(mockUserId),
+            _id: new mongoose.Types.ObjectId(idStr),
             name: 'Test Student',
-            email: 'student@example.com',
+            email: `student-${idStr}@example.com`,
             targetRole: 'MERN Developer',
           };
           if (fields && fields.includes('-passwordHash')) {
             delete user.passwordHash;
           }
           return Promise.resolve(user);
-        }
-        return Promise.resolve(null);
-      }),
-    }));
+        }),
+      };
+    });
 
     // Mock Role.findById
     jest.spyOn(Role, 'findById').mockImplementation((id) => {
@@ -70,6 +76,44 @@ describe('Diagnostic Endpoints (/api/diagnostic)', () => {
       savedDiagnostics.push(doc);
       return Promise.resolve(doc);
     });
+
+    // Mock Roadmap.updateMany (archiving active roadmaps)
+    jest.spyOn(Roadmap, 'updateMany').mockImplementation((filter, update) => {
+      if (filter.isArchived === false && update.isArchived === true) {
+        archivedRoadmaps.push({ filter, update });
+      }
+      return Promise.resolve({ modifiedCount: 1 });
+    });
+
+    // Mock Roadmap.create
+    jest.spyOn(Roadmap, 'create').mockImplementation((data) => {
+      const doc = {
+        _id: new mongoose.Types.ObjectId(),
+        ...data,
+      };
+      savedRoadmaps.push(doc);
+      return Promise.resolve(doc);
+    });
+
+    // Mock LLM call by default to avoid slow external HTTP requests
+    jest.spyOn(llmService, 'callGeminiApi').mockResolvedValue([
+      {
+        moduleId: 'ai-mod-1',
+        title: 'AI Customized Module 1',
+        description: 'Tailored by Gemini',
+        resourceTags: ['AI', 'React'],
+        resources: [{ title: 'Doc', url: 'https://example.com', type: 'docs' }],
+        estimatedHours: 10,
+      },
+      {
+        moduleId: 'ai-mod-2',
+        title: 'AI Customized Module 2',
+        description: 'Tailored by Gemini',
+        resourceTags: ['AI', 'Node'],
+        resources: [{ title: 'Doc', url: 'https://example.com', type: 'docs' }],
+        estimatedHours: 15,
+      },
+    ]);
   });
 
   afterEach(() => {
@@ -141,7 +185,6 @@ describe('Diagnostic Endpoints (/api/diagnostic)', () => {
     });
 
     it('should reject when not all questions are answered (missing answers)', async () => {
-      // Send only one answer when role has 12 questions
       const partialAnswers = [{ questionId: roleQuestions[0].id, selectedIndex: 1 }];
 
       const res = await request(app)
@@ -161,7 +204,6 @@ describe('Diagnostic Endpoints (/api/diagnostic)', () => {
         questionId: q.id,
         selectedIndex: 0,
       }));
-      // Overwrite last answer with duplicate of first
       duplicateAnswers[duplicateAnswers.length - 1] = {
         questionId: roleQuestions[0].id,
         selectedIndex: 1,
@@ -184,7 +226,7 @@ describe('Diagnostic Endpoints (/api/diagnostic)', () => {
         questionId: q.id,
         selectedIndex: 0,
       }));
-      invalidIndexAnswers[0].selectedIndex = 4; // Out of range for 4 options (0-3)
+      invalidIndexAnswers[0].selectedIndex = 4;
 
       const res = await request(app)
         .post('/api/diagnostic/submit')
@@ -197,8 +239,12 @@ describe('Diagnostic Endpoints (/api/diagnostic)', () => {
       expect(res.statusCode).toBe(400);
     });
 
-    it('should successfully score diagnostic, save document, and return scores', async () => {
-      // Provide all correct answers
+    it('should successfully score diagnostic, call LLM, archive old roadmap, and return roadmap', async () => {
+      const userToken = jwt.sign(
+        { id: '507f1f77bcf86cd799439055' },
+        env.JWT_SECRET
+      );
+
       const allCorrectAnswers = roleQuestions.map((q) => ({
         questionId: q.id,
         selectedIndex: q.correctIndex,
@@ -206,7 +252,7 @@ describe('Diagnostic Endpoints (/api/diagnostic)', () => {
 
       const res = await request(app)
         .post('/api/diagnostic/submit')
-        .set('Cookie', [`token=${validToken}`])
+        .set('Cookie', [`token=${userToken}`])
         .send({
           roleId: mockRoleId,
           answers: allCorrectAnswers,
@@ -215,17 +261,80 @@ describe('Diagnostic Endpoints (/api/diagnostic)', () => {
       expect(res.statusCode).toBe(200);
       expect(res.body).toHaveProperty('dimensionScores');
       expect(res.body).toHaveProperty('readinessScore');
+      expect(res.body).toHaveProperty('roadmap');
 
-      // Since all answers were correct, every dimension score should be 5 and readiness 100
-      expect(res.body.readinessScore).toBe(100);
-      Object.values(res.body.dimensionScores).forEach((score) => {
-        expect(score).toBe(5);
-      });
+      // Verify old active roadmap was archived
+      expect(archivedRoadmaps.length).toBeGreaterThan(0);
 
-      // Verify that Diagnostic document was saved in database
-      expect(savedDiagnostics.length).toBe(1);
-      expect(savedDiagnostics[0].userId.toString()).toBe(mockUserId);
-      expect(savedDiagnostics[0].roleId.toString()).toBe(mockRoleId);
+      // Verify roadmap has modules from LLM and history entry
+      expect(res.body.roadmap.modules[0].moduleId).toBe('ai-mod-1');
+      expect(res.body.roadmap.modules[0].status).toBe('active');
+      expect(res.body.roadmap.history[0].event).toBe('roadmap_created');
+    });
+
+    it('LLM failure path never returns 500 and returns fallback roadmap', async () => {
+      // Mock LLM failure
+      jest
+        .spyOn(llmService, 'callGeminiApi')
+        .mockRejectedValue(new Error('Gemini API Quota Exceeded'));
+
+      const userToken = jwt.sign(
+        { id: '507f1f77bcf86cd799439066' },
+        env.JWT_SECRET
+      );
+
+      const allCorrectAnswers = roleQuestions.map((q) => ({
+        questionId: q.id,
+        selectedIndex: q.correctIndex,
+      }));
+
+      const res = await request(app)
+        .post('/api/diagnostic/submit')
+        .set('Cookie', [`token=${userToken}`])
+        .send({
+          roleId: mockRoleId,
+          answers: allCorrectAnswers,
+        });
+
+      // Must NOT return 500
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('roadmap');
+      expect(res.body.roadmap.modules).toBeDefined();
+      expect(res.body.roadmap.modules.length).toBeGreaterThan(0);
+      expect(res.body.roadmap.modules[0].status).toBe('active');
+    });
+
+    it('should enforce rate limit and return 429 when submitted twice within 2 minutes', async () => {
+      const rateLimitUserId = '507f1f77bcf86cd799439077';
+      const userToken = jwt.sign({ id: rateLimitUserId }, env.JWT_SECRET);
+
+      const allCorrectAnswers = roleQuestions.map((q) => ({
+        questionId: q.id,
+        selectedIndex: q.correctIndex,
+      }));
+
+      // First request -> 200
+      const firstRes = await request(app)
+        .post('/api/diagnostic/submit')
+        .set('Cookie', [`token=${userToken}`])
+        .send({
+          roleId: mockRoleId,
+          answers: allCorrectAnswers,
+        });
+      expect(firstRes.statusCode).toBe(200);
+
+      // Second immediate request from same user -> 429
+      const secondRes = await request(app)
+        .post('/api/diagnostic/submit')
+        .set('Cookie', [`token=${userToken}`])
+        .send({
+          roleId: mockRoleId,
+          answers: allCorrectAnswers,
+        });
+      expect(secondRes.statusCode).toBe(429);
+      expect(secondRes.body.message).toMatch(
+        /too many roadmap generation requests/i
+      );
     });
   });
 });

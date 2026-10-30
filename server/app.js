@@ -9,6 +9,7 @@ const roleRoutes = require('./routes/roleRoutes');
 const userRoutes = require('./routes/userRoutes');
 const diagnosticRoutes = require('./routes/diagnosticRoutes');
 const roadmapRoutes = require('./routes/roadmapRoutes');
+const mongoSanitize = require('./middleware/mongoSanitize');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -24,6 +25,7 @@ app.use(
   })
 );
 app.use(express.json({ limit: '100kb' }));
+app.use(mongoSanitize);
 app.use(cookieParser());
 app.use(
   cors({

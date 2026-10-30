@@ -1,7 +1,14 @@
 const mongoose = require('mongoose');
+const { z } = require('zod');
 const Role = require('../models/Role');
 const User = require('../models/User');
 const Roadmap = require('../models/Roadmap');
+
+const roleBodySchema = z.object({
+  roleId: z
+    .string({ required_error: 'roleId is required' })
+    .regex(/^[0-9a-fA-F]{24}$/, 'Invalid role ID format'),
+});
 
 const getRoles = async (req, res, next) => {
   try {
@@ -21,11 +28,18 @@ const getRoles = async (req, res, next) => {
 
 const setUserRole = async (req, res, next) => {
   try {
-    const { roleId } = req.body;
-
-    if (!roleId || !mongoose.Types.ObjectId.isValid(roleId)) {
-      return res.status(400).json({ message: 'Invalid role ID' });
+    const parseResult = roleBodySchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({
+        message: parseResult.error.errors[0]?.message || 'Invalid role ID',
+        errors: parseResult.error.errors.map((e) => ({
+          field: e.path.join('.'),
+          message: e.message,
+        })),
+      });
     }
+
+    const { roleId } = parseResult.data;
 
     const role = await Role.findById(roleId);
     if (!role) {
