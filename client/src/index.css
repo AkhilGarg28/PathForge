@@ -2738,3 +2738,249 @@ input, textarea, select {
 .stepper-node-highlighted {
   box-shadow: 0 0 0 5px rgba(6, 90, 130, 0.3) !important;
 }
+
+/* -------------------------------------------------------------
+   Settings Page (/settings)
+   ------------------------------------------------------------- */
+.settings-page-container {
+  max-width: 740px;
+  margin: 0 auto;
+}
+
+.settings-cards-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settings-fields-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.form-input-readonly {
+  background-color: #F8FAFC !important;
+  color: var(--color-text-secondary) !important;
+  cursor: default !important;
+}
+
+.current-role-display-box {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.role-label-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.role-label-heading {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+
+.role-label-subtext {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.role-active-badge {
+  font-size: var(--font-size-sm) !important;
+  padding: 6px 16px !important;
+}
+
+/* Danger Zone Card */
+.danger-zone-card {
+  background-color: #FFFDFD;
+  border: 1px solid #FECACA;
+  border-left: 5px solid var(--color-danger);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.danger-zone-header {
+  margin-bottom: var(--space-3);
+}
+
+.danger-zone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-danger);
+  background-color: var(--color-danger-bg);
+  border: 1px solid #FCA5A5;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-1);
+}
+
+.danger-zone-title {
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  color: #991B1B;
+  margin-bottom: 2px;
+}
+
+.danger-zone-subtitle {
+  font-size: var(--font-size-sm);
+  color: #7F1D1D;
+  line-height: 1.5;
+}
+
+.danger-zone-controls {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.settings-role-select {
+  cursor: pointer;
+}
+
+.btn-danger-outline {
+  border-color: #FCA5A5 !important;
+  color: var(--color-danger) !important;
+  font-weight: 700;
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background-color: var(--color-danger-bg) !important;
+  border-color: var(--color-danger) !important;
+}
+
+.danger-zone-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Session / Logout Row */
+.session-logout-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.session-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  max-width: 440px;
+}
+
+.btn-logout-settings {
+  border-color: var(--color-border);
+  color: var(--color-secondary);
+}
+
+.btn-logout-settings:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background-color: var(--color-danger-bg);
+}
+
+/* Modal Danger Specifics */
+.modal-card-danger {
+  max-width: 520px !important;
+}
+
+.modal-danger-header {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin-bottom: var(--space-3);
+}
+
+.modal-danger-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.modal-danger-tag {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-danger);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.modal-danger-body {
+  margin-bottom: var(--space-3);
+}
+
+.text-primary-highlight {
+  color: var(--color-primary);
+}
+
+.modal-warning-callout {
+  background-color: #FFFBEB;
+  border: 1px solid #FCD34D;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-top: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: #92400E;
+}
+
+.modal-warning-list {
+  padding-left: 18px;
+  margin-top: 6px;
+  line-height: 1.6;
+}
+
+.btn-danger-confirm {
+  background-color: var(--color-danger) !important;
+  border-color: var(--color-danger) !important;
+  color: #FFFFFF !important;
+}
+
+.btn-danger-confirm:hover:not(:disabled) {
+  background-color: #B91C1C !important;
+  border-color: #B91C1C !important;
+}
+
+@media (max-width: 640px) {
+  .settings-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .danger-zone-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .danger-zone-controls .btn {
+    width: 100%;
+  }
+
+  .session-logout-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .session-logout-row .btn {
+    width: 100%;
+  }
+}
