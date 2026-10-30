@@ -1,176 +1,271 @@
-import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Card from '../components/Card';
-import ProgressBar from '../components/ProgressBar';
-import Spinner from '../components/Spinner';
 import Button from '../components/Button';
+import ErrorMessage from '../components/ErrorMessage';
+import ReadinessScore from '../components/ReadinessScore';
+import ReadinessHistoryChart from '../components/ReadinessHistoryChart';
+import DashboardSkeleton from '../components/DashboardSkeleton';
 import { useAuth } from '../context/AuthContext';
 import { useRoadmap } from '../context/RoadmapContext';
+import api from '../services/api';
 
 const DashboardPage = () => {
   const { user } = useAuth();
-  const { roadmap, loading, fetchRoadmap } = useRoadmap();
+  const { roadmap, setRoadmap } = useRoadmap();
+  const navigate = useNavigate();
+
+  const [localLoading, setLocalLoading] = useState(!roadmap);
+  const [localError, setLocalError] = useState(null);
+
+  const fetchDashboardRoadmap = useCallback(async () => {
+    setLocalLoading(true);
+    setLocalError(null);
+
+    try {
+      const response = await api.get('/roadmap');
+      if (response.data && response.data.roadmap) {
+        setRoadmap(response.data.roadmap);
+      } else {
+        setRoadmap(null);
+      }
+    } catch (err) {
+      if (err.response?.status === 404) {
+        // No active roadmap yet
+        setRoadmap(null);
+      } else {
+        const msg =
+          err.response?.data?.message ||
+          'Failed to load your roadmap. Please check your connection and try again.';
+        setLocalError(msg);
+      }
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [setRoadmap]);
 
   useEffect(() => {
-    if (!roadmap && user?.targetRole) {
-      fetchRoadmap();
-    }
-  }, [roadmap, user?.targetRole, fetchRoadmap]);
+    fetchDashboardRoadmap();
+  }, [fetchDashboardRoadmap]);
 
-  if (loading && !roadmap) {
+  // 1. Loading State with Skeletons
+  if (localLoading && !roadmap) {
+    return <DashboardSkeleton />;
+  }
+
+  // 2. Error State with Retry
+  if (localError && !roadmap) {
     return (
-      <div className="page-center-container">
-        <Spinner size="lg" label="Loading your personalized roadmap..." />
+      <div className="page-container dashboard-error-wrapper">
+        <div style={{ maxWidth: '600px', margin: '48px auto' }}>
+          <ErrorMessage
+            message={localError}
+            onRetry={fetchDashboardRoadmap}
+          />
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            <Link to="/roles" className="btn btn-secondary">
+              View Available Roles
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // If no target role selected yet
-  if (!user?.targetRole) {
-    return (
-      <div className="page-container" style={{ maxWidth: '600px', marginTop: '40px' }}>
-        <Card title="No Target Role Selected" subtitle="Select a role to unlock your diagnostic and roadmap.">
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '20px' }}>
-            Choose a target technical career path to begin your personalized skill diagnostic.
-          </p>
-          <Link to="/roles" className="btn btn-primary">
-            Choose Your Target Role &rarr;
-          </Link>
-        </Card>
-      </div>
-    );
-  }
-
-  // If role is selected but no roadmap has been generated yet
+  // 3. Empty State: No Target Role or No Roadmap Yet
   if (!roadmap) {
     return (
-      <div className="page-container" style={{ maxWidth: '600px', marginTop: '40px' }}>
-        <Card title="Diagnostic Required" subtitle={`Target Role: ${user.targetRole}`}>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '20px', lineHeight: '1.6' }}>
-            You haven't generated a roadmap for <strong>{user.targetRole}</strong> yet. Complete the 12-question diagnostic to identify your competency gaps and construct your customized milestone path.
+      <div className="page-container dashboard-empty-wrapper">
+        <div className="dashboard-empty-card">
+          <div className="empty-icon-bubble" aria-hidden="true">🗺️</div>
+          <h2 className="empty-card-title">
+            {!user?.targetRole ? 'No Target Role Selected' : 'No Active Roadmap Yet'}
+          </h2>
+          <p className="empty-card-text">
+            {!user?.targetRole
+              ? 'Select a technical career path to unlock your targeted competency diagnostic and customized milestone curriculum.'
+              : `You are targeting ${user.targetRole}, but have not taken the skill diagnostic yet. Take the 12-question diagnostic to generate your personalized roadmap.`}
           </p>
-          <Link to="/diagnostic" className="btn btn-primary">
-            Start Skill Diagnostic &rarr;
-          </Link>
-        </Card>
+
+          <div className="empty-card-actions">
+            {!user?.targetRole ? (
+              <Link to="/roles" className="btn btn-primary btn-hero">
+                Choose Your Target Role &rarr;
+              </Link>
+            ) : (
+              <Link to="/diagnostic" className="btn btn-primary btn-hero">
+                Start Skill Diagnostic &rarr;
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
 
-  const completedModulesCount = roadmap.modules?.filter((m) => m.status === 'complete').length || 0;
-  const totalModulesCount = roadmap.modules?.length || 0;
-  const readiness = typeof roadmap.readinessScore === 'number' ? roadmap.readinessScore : 0;
+  // Calculate Metrics
+  const modules = roadmap.modules || [];
+  const completedCount = modules.filter((m) => m.status === 'complete').length;
+  const totalCount = modules.length;
+  const readinessValue = typeof roadmap.readinessScore === 'number' ? roadmap.readinessScore : 0;
+  const roleTitle = user?.targetRole || 'Software Engineering';
+
+  const handleModuleClick = (mod) => {
+    if (mod.status === 'active' || mod.status === 'complete') {
+      const targetId = mod.moduleId || mod._id || mod.id;
+      navigate(`/module/${targetId}`);
+    }
+  };
 
   return (
-    <div className="page-container">
-      <div
-        className="page-header"
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}
-      >
-        <div>
-          <h1 className="page-title">{user.targetRole} Roadmap</h1>
-          <p className="page-subtitle">Track your milestones, module completion, and career readiness.</p>
+    <div className="page-container dashboard-page-wrapper">
+      {/* Page Header */}
+      <div className="dashboard-page-header">
+        <div className="dashboard-header-titles">
+          <span className="dashboard-kicker">Learner Journey</span>
+          <h1 className="dashboard-main-title">{roleTitle} Curriculum</h1>
+          <p className="dashboard-main-subtitle">
+            Track your milestone progress, complete modules, and advance your career readiness.
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Link to="/roles" className="btn btn-secondary">
+
+        <div className="dashboard-header-actions">
+          <Link to="/roles" className="btn btn-secondary" title="Switch your target tech role">
             Switch Role
           </Link>
-          <Link to="/settings" className="btn btn-secondary">
+          <Link to="/settings" className="btn btn-secondary" title="Retake diagnostic or manage profile">
             Settings
           </Link>
         </div>
       </div>
 
-      <div className="demo-grid" style={{ marginBottom: '32px' }}>
-        <Card title="Career Readiness" subtitle="Weighted progress across all curriculum milestones">
-          <ProgressBar
-            value={readiness}
-            label="Readiness Score"
-            showPercentage={true}
+      {/* Top Section: Pinned / Prioritized Readiness Score & Chart */}
+      <section className="dashboard-top-section" aria-label="Readiness Overview">
+        <Card className="readiness-score-card">
+          <ReadinessScore
+            score={readinessValue}
+            completedCount={completedCount}
+            totalCount={totalCount}
           />
-          <p style={{ marginTop: '12px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-            {completedModulesCount} of {totalModulesCount} modules completed. Completing active modules advances your readiness.
-          </p>
         </Card>
 
-        <Card title="Current Target Role" subtitle={user.targetRole}>
-          <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '16px' }}>
-            Your roadmap is active. Work through each module in sequence and pass the checkpoint quizzes to unlock milestones.
-          </p>
-          <Link to="/settings" className="btn btn-secondary" style={{ fontSize: '13px' }}>
-            Retake Diagnostic in Settings
-          </Link>
-        </Card>
-      </div>
+        {/* Readiness Over Time Chart (hidden if < 2 points) */}
+        {roadmap.history && roadmap.history.length >= 2 && (
+          <Card className="readiness-chart-card">
+            <ReadinessHistoryChart history={roadmap.history} />
+          </Card>
+        )}
+      </section>
 
-      <h2 className="section-title">Roadmap Modules</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-        {roadmap.modules?.map((mod, index) => {
-          const isComplete = mod.status === 'complete';
-          const isActive = mod.status === 'active';
-          const isLocked = mod.status === 'locked';
+      {/* Main Section: Vertical Stepper of Module Cards */}
+      <section className="dashboard-modules-section" aria-label="Curriculum Milestones">
+        <div className="section-title-bar">
+          <h2 className="section-title">Milestone Roadmap</h2>
+          <span className="modules-count-tag">
+            {completedCount} of {totalCount} Completed
+          </span>
+        </div>
 
-          let badgeVariant = 'badge-locked';
-          let badgeLabel = 'Locked';
-          if (isComplete) {
-            badgeVariant = 'badge-complete';
-            badgeLabel = 'Complete';
-          } else if (isActive) {
-            badgeVariant = 'badge-active';
-            badgeLabel = 'Active';
-          }
+        <div className="vertical-stepper" role="list">
+          {modules.map((mod, index) => {
+            const isComplete = mod.status === 'complete';
+            const isActive = mod.status === 'active';
+            const isLocked = mod.status === 'locked';
+            const isClickable = isActive || isComplete;
+            const targetId = mod.moduleId || mod._id || mod.id;
 
-          return (
-            <Card
-              key={mod._id || mod.id || index}
-              title={`${index + 1}. ${mod.title}`}
-              subtitle={`Estimated: ${mod.estimatedHours || 10} hrs`}
-              headerAction={<span className={`badge ${badgeVariant}`}>{badgeLabel}</span>}
-              style={{
-                borderColor: isActive ? 'var(--color-primary)' : undefined,
-                borderWidth: isActive ? '2px' : undefined,
-                backgroundColor: isActive ? '#FAFCFE' : undefined,
-              }}
-            >
-              <p style={{ fontSize: '14px', color: 'var(--color-text-secondary)', marginBottom: '12px' }}>
-                {mod.description || 'Module covering core dimensions and practical implementation.'}
-              </p>
+            return (
+              <div
+                key={mod._id || mod.id || index}
+                className={`stepper-item ${isComplete ? 'step-complete' : ''} ${isActive ? 'step-active' : ''} ${isLocked ? 'step-locked' : ''}`}
+                role="listitem"
+              >
+                {/* Stepper Node & Connecting Line */}
+                <div className="stepper-rail">
+                  <div className={`stepper-node stepper-node-${mod.status}`}>
+                    {isComplete && <span className="node-icon">✓</span>}
+                    {isActive && <span className="node-icon">▶</span>}
+                    {isLocked && <span className="node-icon">🔒</span>}
+                  </div>
+                  {index < modules.length - 1 && <div className="stepper-line"></div>}
+                </div>
 
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {isActive && (
-                  <Link
-                    to={`/module/${mod._id || mod.id || index + 1}`}
-                    className="btn btn-primary"
-                    style={{ fontSize: '13px' }}
-                  >
-                    Continue Learning &rarr;
-                  </Link>
-                )}
-                {isComplete && (
-                  <Link
-                    to={`/module/${mod._id || mod.id || index + 1}`}
-                    className="btn btn-secondary"
-                    style={{ fontSize: '13px' }}
-                  >
-                    Review Completed Module
-                  </Link>
-                )}
-                {isLocked && (
-                  <Button variant="secondary" disabled style={{ fontSize: '13px' }}>
-                    🔒 Locked (Complete Previous Milestone)
-                  </Button>
-                )}
+                {/* Module Card */}
+                <div
+                  className={`stepper-card-wrapper ${isClickable ? 'stepper-card-clickable' : 'stepper-card-unclickable'}`}
+                  onClick={() => handleModuleClick(mod)}
+                  onKeyDown={(e) => {
+                    if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      handleModuleClick(mod);
+                    }
+                  }}
+                  tabIndex={isClickable ? 0 : -1}
+                  role={isClickable ? 'link' : 'region'}
+                  aria-label={`${mod.title}, status: ${mod.status}`}
+                >
+                  <Card className={`stepper-module-card ${isActive ? 'module-card-active' : ''}`}>
+                    <div className="module-card-header">
+                      <div className="module-title-group">
+                        <span className="module-step-counter">Milestone {index + 1}</span>
+                        <h3 className="module-title">{mod.title}</h3>
+                      </div>
+
+                      <div className="module-badge-wrapper">
+                        {isComplete && (
+                          <span className="badge badge-complete">
+                            Complete ✓
+                          </span>
+                        )}
+                        {isActive && (
+                          <span className="badge badge-active">
+                            Active ▶
+                          </span>
+                        )}
+                        {isLocked && (
+                          <span className="badge badge-locked">
+                            Locked 🔒
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="module-description">
+                      {mod.description || 'Master key concepts, practical implementations, and verify checkpoint questions.'}
+                    </p>
+
+                    <div className="module-card-footer">
+                      <span className="module-estimated-hours">
+                        ⏱️ Estimated: <strong>{mod.estimatedHours || 10} hrs</strong>
+                      </span>
+
+                      {/* Action Prompt / Locked Explanation */}
+                      <div className="module-footer-action">
+                        {isActive && (
+                          <span className="module-action-link active-link">
+                            Continue Module &rarr;
+                          </span>
+                        )}
+                        {isComplete && (
+                          <span className="module-action-link complete-link">
+                            Review Module &rarr;
+                          </span>
+                        )}
+                        {isLocked && (
+                          <div className="locked-explanation">
+                            <span className="lock-icon" aria-hidden="true">🔒</span>
+                            <span>Locked &bull; Complete preceding milestone to unlock</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </div>
               </div>
-            </Card>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 };

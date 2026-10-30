@@ -1,74 +1,136 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import Card from '../components/Card';
-import Spinner from '../components/Spinner';
 import Button from '../components/Button';
 import ErrorMessage from '../components/ErrorMessage';
+import { useAuth } from '../context/AuthContext';
 import { useRoadmap } from '../context/RoadmapContext';
 import { useToast } from '../hooks/useToast';
 import api from '../services/api';
 
+const ROTATING_STATUS_TEXTS = [
+  'Analyzing your skills',
+  'Sequencing your modules',
+  'Matching resources',
+];
+
 const GeneratingPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { setRoadmap, setDimensionScores } = useRoadmap();
   const { addToast } = useToast();
 
-  const roleId = location.state?.roleId;
-  const roleName = location.state?.roleName || 'Target Role';
-  const answers = location.state?.answers;
-  const storageKey = location.state?.storageKey;
+  // Retrieve cached answers and roleId from state or sessionStorage
+  const [cachedPayload, setCachedPayload] = useState(() => {
+    const stateRoleId = location.state?.roleId;
+    const stateAnswers = location.state?.answers;
+    const stateRoleName = location.state?.roleName;
+    const stateKey = location.state?.storageKey;
 
-  const [generating, setGenerating] = useState(true);
+    if (stateRoleId && stateAnswers && stateAnswers.length > 0) {
+      return {
+        roleId: stateRoleId,
+        answers: stateAnswers,
+        roleName: stateRoleName || user?.targetRole || 'Target Role',
+        storageKey: stateKey,
+      };
+    }
+
+    // Attempt to recover from sessionStorage
+    if (user?.id) {
+      try {
+        // Look for any diagnostic key for this user
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key && key.startsWith(`pathforge_diagnostic_progress_${user.id}_`)) {
+            const raw = sessionStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              const extractedRoleId = key.replace(`pathforge_diagnostic_progress_${user.id}_`, '');
+              if (parsed.answers && Object.keys(parsed.answers).length > 0) {
+                const formatted = Object.entries(parsed.answers).map(([qId, sIdx]) => ({
+                  questionId: qId,
+                  selectedIndex: sIdx,
+                }));
+                return {
+                  roleId: extractedRoleId,
+                  answers: formatted,
+                  roleName: user?.targetRole || 'Target Role',
+                  storageKey: key,
+                };
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Session recovery error:', e);
+      }
+    }
+
+    return null;
+  });
+
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [statusStep, setStatusStep] = useState(0);
+  const [statusIndex, setStatusIndex] = useState(0);
+  const [isLongWaiting, setIsLongWaiting] = useState(false);
 
-  const requestSentRef = useRef(false);
+  const requestInProgressRef = useRef(false);
 
-  const statusMessages = [
-    'Evaluating baseline responses across skill dimensions...',
-    'Analyzing competency gaps and calculating initial readiness...',
-    'Synthesizing milestone roadmap with tailored checkpoints...',
-    'Finalizing curriculum and assembling curated learning resources...',
-  ];
-
-  // Animated status message progression
+  // 1. Rotating status text timer (cycles through the 3 required status messages)
   useEffect(() => {
-    if (!generating) return;
-    const interval = setInterval(() => {
-      setStatusStep((prev) => (prev < statusMessages.length - 1 ? prev + 1 : prev));
-    }, 1800);
-    return () => clearInterval(interval);
-  }, [generating, statusMessages.length]);
+    if (!loading) return;
+    const statusInterval = setInterval(() => {
+      setStatusIndex((prev) => (prev + 1) % ROTATING_STATUS_TEXTS.length);
+    }, 2800);
+    return () => clearInterval(statusInterval);
+  }, [loading]);
 
-  const runGeneration = async () => {
-    if (!roleId || !answers || answers.length === 0) {
-      setError('No submission data found. Please complete the diagnostic assessment.');
-      setGenerating(false);
+  // 2. 15-second reassuring message timer
+  useEffect(() => {
+    if (!loading) {
+      setIsLongWaiting(false);
       return;
     }
 
-    setGenerating(true);
+    const timer = setTimeout(() => {
+      setIsLongWaiting(true);
+    }, 15000);
+
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  // 3. Execution function: owns the submit request
+  const executeGeneration = useCallback(async (payload) => {
+    if (!payload || !payload.roleId || !payload.answers || payload.answers.length === 0) {
+      setError('No submission data found. Please complete the diagnostic assessment.');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     setError(null);
+    setIsLongWaiting(false);
 
     try {
       const response = await api.post('/diagnostic/submit', {
-        roleId,
-        answers,
+        roleId: payload.roleId,
+        answers: payload.answers,
       });
 
       const { roadmap, dimensionScores } = response.data;
 
-      // 1. Clear session storage draft
-      if (storageKey) {
+      // Clean up sessionStorage answers now that generation succeeded
+      if (payload.storageKey) {
         try {
-          sessionStorage.removeItem(storageKey);
+          sessionStorage.removeItem(payload.storageKey);
         } catch (e) {
-          console.warn('Failed to clear sessionStorage', e);
+          console.warn('Could not clear sessionStorage:', e);
         }
       }
 
-      // 2. Store returned roadmap & dimension scores in context state
+      // Store in RoadmapContext
       if (roadmap) {
         setRoadmap(roadmap);
       }
@@ -77,67 +139,93 @@ const GeneratingPage = () => {
       }
 
       addToast('Your learning roadmap is ready!', 'success');
-
-      // 3. Navigate to dashboard
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      console.error('Diagnostic submission failed:', err);
-      const serverMsg =
+      console.error('Roadmap generation error:', err);
+      const message =
         err.response?.data?.message ||
         (err.response?.status === 429
-          ? 'Too many roadmap generation requests. Please wait a moment before trying again.'
-          : 'Failed to generate your roadmap. Please check your network connection and try again.');
-      setError(serverMsg);
-      setGenerating(false);
+          ? 'Generation rate limit reached: please wait a moment before retrying.'
+          : 'Failed to generate roadmap. Please click Retry to re-submit your answers.');
+      setError(message);
+      setLoading(false);
+    }
+  }, [addToast, navigate, setDimensionScores, setRoadmap]);
+
+  // Initial trigger
+  useEffect(() => {
+    if (requestInProgressRef.current) return;
+    requestInProgressRef.current = true;
+
+    if (cachedPayload) {
+      executeGeneration(cachedPayload);
+    } else {
+      setLoading(false);
+      setError('No cached diagnostic answers found.');
+    }
+  }, [cachedPayload, executeGeneration]);
+
+  const handleRetry = () => {
+    if (cachedPayload) {
+      executeGeneration(cachedPayload);
+    } else {
+      navigate('/diagnostic');
     }
   };
 
-  useEffect(() => {
-    if (requestSentRef.current) return;
-    requestSentRef.current = true;
-
-    if (!roleId || !answers) {
-      setError('No submission data found. Please complete the diagnostic assessment.');
-      setGenerating(false);
-      return;
-    }
-
-    runGeneration();
-  }, []);
-
   return (
-    <div className="page-center-container">
-      <Card
-        className="generating-card"
-        style={{ maxWidth: '520px', width: '100%', textAlign: 'center', padding: '36px var(--space-3)' }}
-      >
-        {generating ? (
-          <div className="generating-in-progress">
-            <Spinner size="lg" label="Generating personalized roadmap..." />
-            
-            <h2 className="generating-heading" style={{ marginTop: '24px', color: 'var(--color-primary)' }}>
-              Generating Your Roadmap
-            </h2>
+    <div className="page-center-container generating-page-wrapper">
+      <Card className="generating-card-main">
+        {loading ? (
+          <div className="generating-centered-animation">
+            {/* Centered Pulse & Orbit Animation */}
+            <div className="pulse-orb-container" aria-hidden="true">
+              <div className="pulse-orb-outer"></div>
+              <div className="pulse-orb-middle"></div>
+              <div className="pulse-orb-core">
+                <span className="pulse-orb-icon">⚡</span>
+              </div>
+            </div>
 
-            <p className="generating-role-pill" style={{ margin: '8px 0 16px' }}>
-              Target Role: <strong>{roleName}</strong>
-            </p>
+            <h1 className="generating-main-title">Forging Your Roadmap</h1>
 
-            <div className="generating-status-container">
-              <p className="generating-status-text">
-                {statusMessages[statusStep]}
+            {/* Rotating Status Text */}
+            <div className="rotating-status-box" aria-live="polite">
+              <span className="rotating-status-dot"></span>
+              <p className="rotating-status-text">
+                {ROTATING_STATUS_TEXTS[statusIndex]}...
               </p>
             </div>
 
-            <p className="generating-hint" style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '20px' }}>
-              Our adaptive engine is constructing a sequenced milestone path tailored to your diagnostic scores.
+            {/* Reassuring message if longer than 15 seconds */}
+            {isLongWaiting && (
+              <div className="long-wait-reassurance-box" role="status">
+                <p className="long-wait-text">
+                  AI curriculum synthesis is performing deep competency sequencing to ensure the highest quality milestones. Hang tight, we're almost done!
+                </p>
+              </div>
+            )}
+
+            <p className="generating-subhint">
+              Target Role: <strong>{cachedPayload?.roleName || user?.targetRole || 'Tech Career'}</strong>
             </p>
           </div>
         ) : error ? (
-          <div className="generating-error-container">
-            <ErrorMessage message={error} />
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '24px' }}>
-              <Button variant="primary" onClick={runGeneration}>
+          <div className="generating-error-view">
+            <div className="error-badge-icon" aria-hidden="true">✕</div>
+            <h2 className="generating-error-title">Generation Incomplete</h2>
+            <ErrorMessage message={error} style={{ margin: '16px 0' }} />
+            
+            <p className="cached-answers-note">
+              Your diagnostic answers are safely preserved. Click <strong>Retry</strong> to re-send them without retaking the quiz.
+            </p>
+
+            <div className="generating-action-buttons">
+              <Button
+                variant="primary"
+                onClick={handleRetry}
+                style={{ minWidth: '160px' }}
+              >
                 Retry Generation
               </Button>
               <Link to="/diagnostic" className="btn btn-secondary">
@@ -146,9 +234,11 @@ const GeneratingPage = () => {
             </div>
           </div>
         ) : (
-          <div className="generating-complete">
-            <h3>Roadmap Ready!</h3>
-            <p>Redirecting to your learner dashboard...</p>
+          <div className="generating-fallback-notice">
+            <p>No active generation request. Redirecting...</p>
+            <Link to="/dashboard" className="btn btn-primary" style={{ marginTop: '16px' }}>
+              Go to Dashboard
+            </Link>
           </div>
         )}
       </Card>
