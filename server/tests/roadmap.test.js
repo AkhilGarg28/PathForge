@@ -226,6 +226,29 @@ describe('Roadmap Service & Endpoints', () => {
         expect(res.statusCode).toBe(404);
         expect(res.body.message).toMatch(/no roadmap yet/i);
       });
+
+      it('never trusts client-supplied userId in query parameter', async () => {
+        // User B attempts to view User A's roadmap by injecting userAId in query
+        const res = await request(app)
+          .get(`/api/roadmap?userId=${userAId}`)
+          .set('Cookie', [`token=${tokenB}`]);
+
+        // Must strictly use token identity (User B) and return 404
+        expect(res.statusCode).toBe(404);
+        expect(res.body.message).toMatch(/no roadmap yet/i);
+      });
+
+      it("user B cannot complete a module in user A's roadmap", async () => {
+        const firstModuleId = sampleModules[0].moduleId;
+
+        const res = await request(app)
+          .patch(`/api/roadmap/module/${firstModuleId}/complete`)
+          .send({ userId: userAId })
+          .set('Cookie', [`token=${tokenB}`]);
+
+        expect(res.statusCode).toBe(404);
+        expect(res.body.message).toMatch(/no roadmap yet/i);
+      });
     });
 
     describe('PATCH /api/roadmap/module/:moduleId/complete', () => {

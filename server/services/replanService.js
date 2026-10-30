@@ -24,6 +24,7 @@ const compressedModulesArraySchema = z.array(compressedModuleSchema);
 
 /**
  * Calls Gemini API to compress remaining roadmap modules by removing at most one redundant module.
+ * Note: Never passes personal data (user name or email) to LLM.
  *
  * @param {Array<object>} remainingModules
  * @param {number} score
@@ -37,6 +38,7 @@ const callLLMCompression = async (remainingModules, score) => {
     throw new Error('GEMINI_API_KEY is not configured');
   }
 
+  // Anonymized curriculum prompt
   const prompt = `You are an expert technical curriculum designer.
 The learner demonstrated high mastery on their checkpoint evaluation with a score of ${score}%.
 Analyze the following remaining roadmap modules and compress them by removing at most ONE redundant module:
@@ -44,11 +46,14 @@ ${JSON.stringify(remainingModules, null, 2)}
 
 Return ONLY a valid JSON array of compressed modules.`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {

@@ -58,6 +58,7 @@ const generateFallbackRoadmap = (roleName, dimensionScores = {}) => {
 
 /**
  * Calls Gemini API to generate structured roadmap modules.
+ * Note: Never passes personal data (user name or email) to LLM.
  *
  * @param {string} roleName
  * @param {Record<string, number>} dimensionScores
@@ -71,6 +72,7 @@ const callGeminiApi = async (roleName, dimensionScores) => {
     throw new Error('GEMINI_API_KEY is not configured');
   }
 
+  // Anonymized prompt: contains ONLY role and aggregated dimension scores
   const prompt = `You are an expert technical curriculum designer.
 Generate a structured, 6-module learning roadmap for a learner pursuing the role "${roleName}".
 Their diagnostic dimension scores (0.0 to 5.0 scale) are:
@@ -96,11 +98,14 @@ Instructions:
   }
 ]`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
