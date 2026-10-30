@@ -25,13 +25,13 @@ export default defineConfig({
     {
       command: 'node ../server/scripts/startDevServer.js',
       url: 'http://localhost:5000/api/health',
-      reuseExistingServer: false,
+      reuseExistingServer: true,
       timeout: 60000,
     },
     {
       command: 'npm run dev --prefix ../client',
       url: 'http://localhost:5173',
-      reuseExistingServer: false,
+      reuseExistingServer: true,
       timeout: 60000,
     },
   ],
