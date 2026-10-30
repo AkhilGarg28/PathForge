@@ -1,0 +1,336 @@
+.pf-landing {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--color-bg-app);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  box-sizing: border-box;
+}
+
+.pf-landing__main {
+  flex: 1 0 auto;
+  width: 100%;
+}
+
+/* ==========================================================================
+   Hero Section
+   ========================================================================== */
+.pf-landing__hero {
+  padding: var(--space-8) var(--space-3);
+  background: linear-gradient(
+    180deg,
+    var(--color-primary-50) 0%,
+    var(--color-bg-app) 100%
+  );
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.pf-landing__hero-container {
+  max-width: 1140px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.pf-landing__hero-content {
+  flex: 1 1 560px;
+  max-width: 620px;
+}
+
+.pf-landing__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-0-5) var(--space-1-5, 12px);
+  background-color: var(--color-primary-100);
+  color: var(--color-primary-900);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-2);
+}
+
+.pf-landing__headline {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-deep-blue-900);
+  line-height: var(--line-height-tight);
+  margin: 0 0 var(--space-2) 0;
+  letter-spacing: -0.02em;
+}
+
+.pf-landing__subheading {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  margin: 0 0 var(--space-4) 0;
+}
+
+.pf-landing__hero-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pf-landing__hero-visual {
+  flex: 1 1 420px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.pf-landing__hero-card-preview {
+  width: 100%;
+  max-width: 400px;
+  background-color: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ==========================================================================
+   Section Common Styles
+   ========================================================================== */
+.pf-landing__section {
+  padding: var(--space-8) var(--space-3);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pf-landing__section-container {
+  max-width: 1140px;
+  margin: 0 auto;
+}
+
+.pf-landing__section-header {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto var(--space-6) auto;
+}
+
+.pf-landing__section-title {
+  font-size: var(--font-size-2xl);
+  color: var(--color-deep-blue-900);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.pf-landing__section-desc {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+  margin: 0;
+}
+
+/* ==========================================================================
+   How It Works (4-Step Grid)
+   ========================================================================== */
+.pf-landing__steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.pf-landing__step-card {
+  background-color: var(--color-surface-card);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  position: relative;
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.pf-landing__step-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary-300);
+}
+
+.pf-landing__step-number {
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary-100);
+  color: var(--color-primary-800);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-1);
+}
+
+.pf-landing__step-title {
+  font-size: var(--font-size-lg);
+  color: var(--color-deep-blue-900);
+  margin: 0;
+}
+
+.pf-landing__step-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+  margin: 0;
+}
+
+/* ==========================================================================
+   Features Section
+   ========================================================================== */
+.pf-landing__features {
+  background-color: var(--color-surface-subtle);
+  border-top: 1px solid var(--color-border-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.pf-landing__features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.pf-landing__feature-card {
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  box-shadow: var(--shadow-sm);
+}
+
+.pf-landing__feature-icon-wrapper {
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary-50);
+  color: var(--color-primary-700);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--space-1);
+}
+
+.pf-landing__feature-title {
+  font-size: var(--font-size-lg);
+  color: var(--color-deep-blue-900);
+  margin: 0;
+}
+
+.pf-landing__feature-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+  margin: 0;
+}
+
+/* ==========================================================================
+   Final CTA Band
+   ========================================================================== */
+.pf-landing__cta-band {
+  padding: var(--space-8) var(--space-3);
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-900) 0%,
+    var(--color-deep-blue-900) 100%
+  );
+  color: var(--color-white);
+  text-align: center;
+}
+
+.pf-landing__cta-content {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.pf-landing__cta-title {
+  font-size: var(--font-size-3xl);
+  color: var(--color-white);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.pf-landing__cta-desc {
+  font-size: var(--font-size-lg);
+  color: var(--color-primary-100);
+  margin: 0 0 var(--space-4) 0;
+  line-height: var(--line-height-relaxed);
+}
+
+.pf-landing__cta-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   Responsive Adaptations (360px - 1024px)
+   ========================================================================== */
+@media (max-width: 900px) {
+  .pf-landing__hero-container {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .pf-landing__hero-actions {
+    justify-content: center;
+  }
+
+  .pf-landing__hero-visual {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .pf-landing__hero {
+    padding: var(--space-6) var(--space-2);
+  }
+
+  .pf-landing__headline {
+    font-size: var(--font-size-2xl);
+  }
+
+  .pf-landing__subheading {
+    font-size: var(--font-size-base);
+  }
+
+  .pf-landing__section {
+    padding: var(--space-6) var(--space-2);
+  }
+
+  .pf-landing__cta-band {
+    padding: var(--space-6) var(--space-2);
+  }
+
+  .pf-landing__cta-title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .pf-landing__hero-actions,
+  .pf-landing__cta-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .pf-landing__hero-actions a,
+  .pf-landing__cta-actions a,
+  .pf-landing__hero-actions button,
+  .pf-landing__cta-actions button {
+    width: 100%;
+  }
+}

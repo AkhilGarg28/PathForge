@@ -1,0 +1,189 @@
+/* ============================================================================
+   SettingsPage.css — User Settings & Account Management Styles
+   ============================================================================ */
+
+.pf-settings-page {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--spacing-8) var(--spacing-4) var(--spacing-16);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+}
+
+/* Header */
+.pf-settings-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.pf-settings-title {
+  margin: 0;
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-neutral-900);
+  line-height: var(--line-height-tight);
+}
+
+.pf-settings-subtitle {
+  margin: 0;
+  font-size: var(--font-size-base);
+  color: var(--color-neutral-600);
+}
+
+/* Section Cards */
+.pf-settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+}
+
+.pf-settings-card {
+  background-color: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-6) var(--spacing-7);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-5);
+}
+
+.pf-settings-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding-bottom: var(--spacing-4);
+  border-bottom: 1px solid var(--color-neutral-100);
+}
+
+.pf-settings-card__title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-neutral-900);
+}
+
+.pf-settings-card__desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-neutral-600);
+}
+
+.pf-settings-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.pf-settings-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-3);
+  padding-top: var(--spacing-2);
+}
+
+/* Role Section specific */
+.pf-settings-role-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4) var(--spacing-5);
+  background-color: var(--color-primary-50);
+  border: 1px solid var(--color-primary-200);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+.pf-settings-role-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pf-settings-role-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary-800);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pf-settings-role-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-neutral-900);
+}
+
+/* Danger Zone Section */
+.pf-settings-card--danger {
+  border-color: var(--color-error-border, #fecaca);
+}
+
+.pf-settings-card--danger .pf-settings-card__header {
+  border-bottom-color: var(--color-error-border, #fecaca);
+}
+
+.pf-settings-card--danger .pf-settings-card__title {
+  color: var(--color-error-text, #991b1b);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.pf-settings-danger-banner {
+  background-color: var(--color-error-bg, #fef2f2);
+  border: 1px solid var(--color-error-border, #fecaca);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-4) var(--spacing-5);
+  color: var(--color-error-text, #991b1b);
+  font-size: var(--font-size-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+/* Inline alerts/errors */
+.pf-settings-inline-error {
+  padding: var(--spacing-2) var(--spacing-3);
+  background-color: var(--color-error-bg, #fef2f2);
+  border: 1px solid var(--color-error-border, #fecaca);
+  border-radius: var(--radius-md);
+  color: var(--color-error-text, #991b1b);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Responsive adjustments */
+@media (max-width: 639px) {
+  .pf-settings-page {
+    padding: var(--spacing-4) var(--spacing-3) var(--spacing-12);
+    gap: var(--spacing-6);
+  }
+
+  .pf-settings-card {
+    padding: var(--spacing-5) var(--spacing-4);
+  }
+
+  .pf-settings-role-box {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pf-settings-role-box button {
+    width: 100%;
+  }
+
+  .pf-settings-card__footer {
+    justify-content: stretch;
+  }
+
+  .pf-settings-card__footer button {
+    width: 100%;
+  }
+}

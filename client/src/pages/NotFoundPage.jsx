@@ -1,74 +1,73 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import Card from '../components/Card';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth.js';
+import { usePageTitle } from '../hooks/usePageTitle.js';
+import Button from '../components/Button.jsx';
+import './NotFoundPage.css';
 
-/**
- * Friendly 404 Page Component
- *
- * Renders when the requested URL does not match any registered route.
- */
-const NotFoundPage = () => {
+export default function NotFoundPage() {
   const { user } = useAuth();
+  usePageTitle('Page Not Found');
 
   return (
-    <div className="page-center-container not-found-page">
-      <Card className="not-found-card text-center" style={{ maxWidth: '540px', padding: '48px 24px' }}>
-        <div
-          className="not-found-icon-bubble"
-          style={{
-            width: '68px',
-            height: '68px',
-            borderRadius: '50%',
-            backgroundColor: 'var(--color-primary-light)',
-            color: 'var(--color-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '2rem',
-            margin: '0 auto 16px',
-          }}
-          aria-hidden="true"
-        >
-          🧭
+    <main id="main-content" className="pf-not-found-page">
+      <div
+        className="pf-not-found-card"
+        role="region"
+        aria-labelledby="not-found-heading"
+      >
+        <div className="pf-not-found-visual" aria-hidden="true">
+          <div className="pf-not-found-icon-wrapper">
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="m4.93 4.93 4.24 4.24" />
+              <path d="m14.83 9.17 4.24-4.24" />
+              <path d="m14.83 14.83 4.24 4.24" />
+              <path d="m9.17 14.83-4.24 4.24" />
+              <circle cx="12" cy="12" r="4" />
+            </svg>
+          </div>
         </div>
 
-        <span
-          className="badge badge-active"
-          style={{ marginBottom: '12px', display: 'inline-block' }}
-        >
-          Error 404
-        </span>
-
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '8px' }}>
+        <span className="pf-not-found-code">Error 404</span>
+        <h1 id="not-found-heading" className="pf-not-found-title">
           Page Not Found
         </h1>
 
-        <p style={{ fontSize: '0.95rem', color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: '28px' }}>
-          We could not find the milestone, page, or resource you are looking for. It may have been moved, renamed, or never existed.
+        <p className="pf-not-found-desc">
+          We couldn&apos;t find the path you were looking for. It may have moved, been
+          renamed, or you may have followed an outdated link.
         </p>
 
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          {user ? (
-            <Link
-              to={user.targetRole ? '/dashboard' : '/roles'}
-              className="btn btn-primary"
-            >
-              Continue to {user.targetRole ? 'Dashboard' : 'Roles'} &rarr;
-            </Link>
-          ) : (
-            <Link to="/" className="btn btn-primary">
-              Return to Homepage &rarr;
+        <div className="pf-not-found-actions">
+          <Link to="/" style={{ textDecoration: 'none' }}>
+            <Button variant="primary" size="md">
+              Return to Home
+            </Button>
+          </Link>
+
+          {user && (
+            <Link to="/dashboard" style={{ textDecoration: 'none' }}>
+              <Button variant="secondary" size="md">
+                Go to Dashboard
+              </Button>
             </Link>
           )}
-
-          <Link to="/roles" className="btn btn-secondary">
-            Explore Roles
-          </Link>
         </div>
-      </Card>
-    </div>
-  );
-};
 
-export default NotFoundPage;
+        <div className="pf-not-found-links">
+          <span>Need help finding your way?</span>
+          <Link to="/role-selection">Browse Career Tracks</Link>
+        </div>
+      </div>
+    </main>
+  );
+}

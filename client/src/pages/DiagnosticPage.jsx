@@ -1,455 +1,501 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Spinner from '../components/Spinner';
-import ProgressBar from '../components/ProgressBar';
-import ErrorMessage from '../components/ErrorMessage';
-import QuizQuestion from '../components/QuizQuestion';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../hooks/useToast';
-import { useRoadmap } from '../context/RoadmapContext';
-import api from '../services/api';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import * as api from '../services/api.js';
+import { useRoadmapGeneration } from '../hooks/useRoadmapGeneration.js';
+import { usePageTitle } from '../hooks/usePageTitle.js';
+import Button from '../components/Button.jsx';
+import ProgressBar from '../components/ProgressBar.jsx';
+import Skeleton from '../components/Skeleton.jsx';
+import EmptyState from '../components/EmptyState.jsx';
+import ErrorState from '../components/ErrorState.jsx';
+import QuizQuestion from '../components/QuizQuestion.jsx';
+import './DiagnosticPage.css';
 
-const DiagnosticPage = () => {
-  const { user } = useAuth();
-  const { fetchRoadmap } = useRoadmap();
-  const { addToast } = useToast();
+function getRoleTitle(id, rolesList = []) {
+  const match = rolesList.find((r) => r.id === id);
+  if (match?.title) return match.title;
+  if (id === 'mern-developer') return 'MERN Developer';
+  if (id === 'data-analyst') return 'Data Analyst';
+  return id
+    ? id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : 'Target Role';
+}
+
+export default function DiagnosticPage() {
+  const { roleId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
+  const { startGeneration } = useRoadmapGeneration();
+  usePageTitle('Skill Diagnostic Assessment');
 
-  const isRetake = Boolean(location.state?.retake);
-
-  const [checkingRoadmap, setCheckingRoadmap] = useState(true);
-  const [hasExistingRoadmap, setHasExistingRoadmap] = useState(false);
-
-  const [roleId, setRoleId] = useState(location.state?.roleId || null);
-  const [roleName, setRoleName] = useState(user?.targetRole || '');
   const [questions, setQuestions] = useState([]);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const confirmModalRef = useRef(null);
-  const reviewBtnRef = useRef(null);
+  // Restore answers from sessionStorage per roleId
+  const [answers, setAnswers] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem(`pathforge_diagnostic_${roleId}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      }
+    } catch {
+      // Ignore sessionStorage read failure
+    }
+    return {};
+  });
 
-  // Accessible modal listener: Escape key and Focus Trap
+  const questionCardRef = useRef(null);
+
+  // Fetch assessment questions and roles
+  const loadData = useCallback(() => {
+    let isCancelled = false;
+
+    Promise.all([api.getDiagnostic(roleId), api.getRoles().catch(() => ({ roles: [] }))])
+      .then(([diagRes, rolesRes]) => {
+        if (!isCancelled) {
+          setQuestions(diagRes.questions || []);
+          setRoles(rolesRes.roles || []);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!isCancelled) {
+          setError(err);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [roleId]);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadData();
+  }, [loadData]);
+
   useEffect(() => {
-    if (!showConfirmModal) return;
+    const cleanup = loadData();
+    return cleanup;
+  }, [loadData]);
 
+  // Persist answer change to state & sessionStorage
+  const handleSelectOption = useCallback(
+    (questionId, optionIndex) => {
+      setAnswers((prev) => {
+        const next = { ...prev, [questionId]: optionIndex };
+        try {
+          sessionStorage.setItem(`pathforge_diagnostic_${roleId}`, JSON.stringify(next));
+        } catch {
+          // Ignore storage error
+        }
+        return next;
+      });
+    },
+    [roleId],
+  );
+
+  // Calculations for progress & validation (memoized)
+  const totalQuestions = questions.length;
+  const answeredCount = useMemo(
+    () => questions.filter((q) => answers[q.id] !== undefined).length,
+    [questions, answers],
+  );
+  const isAllAnswered = totalQuestions > 0 && answeredCount === totalQuestions;
+  const isLastQuestion = totalQuestions > 0 && currentIndex === totalQuestions - 1;
+
+  const unansweredIndices = useMemo(
+    () =>
+      questions
+        .map((q, idx) => (answers[q.id] === undefined ? idx : null))
+        .filter((idx) => idx !== null),
+    [questions, answers],
+  );
+
+  const currentQuestion = questions[currentIndex];
+  const roleTitle = useMemo(() => getRoleTitle(roleId, roles), [roleId, roles]);
+
+  // Submit action: clear storage, start async generation in context, and navigate to /generating
+  const handleConfirmSubmit = useCallback(async () => {
+    setIsSubmitting(true);
+    setShowConfirmModal(false);
+
+    const submissionAnswers = questions.map((q) => ({
+      questionId: q.id,
+      selectedIndex: answers[q.id] !== undefined ? answers[q.id] : 0,
+    }));
+
+    try {
+      sessionStorage.removeItem(`pathforge_diagnostic_${roleId}`);
+    } catch {
+      // Ignore
+    }
+
+    try {
+      startGeneration({ roleId, answers: submissionAnswers }).catch(() => {
+        // GeneratingPage will display error and handle retry
+      });
+      navigate('/generating');
+    } catch {
+      setIsSubmitting(false);
+    }
+  }, [answers, questions, roleId, startGeneration, navigate]);
+
+  // Keyboard navigation: 1-5 keys to pick option, Enter to advance / submit, Escape for modal
+  useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setShowConfirmModal(false);
+      if (showConfirmModal) {
+        if (e.key === 'Escape') {
+          setShowConfirmModal(false);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          handleConfirmSubmit();
+        }
         return;
       }
 
-      if (e.key === 'Tab') {
-        const focusable = confirmModalRef.current?.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (!focusable || focusable.length === 0) return;
+      // If user is actively typing inside an input/button, allow native handling
+      if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'A')) {
+        return;
+      }
 
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
+      // 1-5 number keys select option for current question
+      if (currentQuestion && /^[1-9]$/.test(e.key)) {
+        const optionNum = Number(e.key);
+        if (optionNum >= 1 && optionNum <= currentQuestion.options.length) {
+          e.preventDefault();
+          handleSelectOption(currentQuestion.id, optionNum - 1);
+        }
+      }
 
-        if (e.shiftKey) {
-          if (document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-          }
-        } else {
-          if (document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
-          }
+      // Enter advances to next or opens confirmation on last
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (currentIndex < totalQuestions - 1) {
+          setCurrentIndex((prev) => prev + 1);
+        } else if (isAllAnswered) {
+          setShowConfirmModal(true);
         }
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    const timer = setTimeout(() => {
-      reviewBtnRef.current?.focus();
-    }, 50);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    showConfirmModal,
+    currentQuestion,
+    currentIndex,
+    totalQuestions,
+    isAllAnswered,
+    handleConfirmSubmit,
+    handleSelectOption,
+  ]);
 
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      clearTimeout(timer);
-    };
-  }, [showConfirmModal]);
-
-  const storageKey = useMemo(() => {
-    if (!user?.id || !roleId) return null;
-    return `pathforge_diagnostic_progress_${user.id}_${roleId}`;
-  }, [user?.id, roleId]);
-
-  // 1. Validate Target Role & Existing Roadmap
-  useEffect(() => {
-    if (!user) return;
-
-    if (!user.targetRole) {
-      addToast('Please select a target role before taking the diagnostic.', 'info');
-      navigate('/roles', { replace: true });
-      return;
-    }
-
-    const checkExistingRoadmap = async () => {
-      setCheckingRoadmap(true);
-      try {
-        const existing = await fetchRoadmap();
-        if (existing && !isRetake) {
-          setHasExistingRoadmap(true);
-        } else {
-          setHasExistingRoadmap(false);
-        }
-      } catch (err) {
-        setHasExistingRoadmap(false);
-      } finally {
-        setCheckingRoadmap(false);
-      }
-    };
-
-    checkExistingRoadmap();
-  }, [user, isRetake, navigate, addToast, fetchRoadmap]);
-
-  // 2. Resolve Role ID if missing
-  useEffect(() => {
-    if (!user?.targetRole || roleId || hasExistingRoadmap) return;
-
-    const resolveRoleId = async () => {
-      try {
-        const res = await api.get('/roles');
-        const rolesList = res.data?.roles || [];
-        const matching = rolesList.find((r) => r.name === user.targetRole);
-        if (matching) {
-          setRoleId(matching.id);
-          setRoleName(matching.name);
-        } else {
-          setError(`Role '${user.targetRole}' could not be resolved.`);
-        }
-      } catch (err) {
-        setError('Failed to resolve role information.');
-      }
-    };
-
-    resolveRoleId();
-  }, [user?.targetRole, roleId, hasExistingRoadmap]);
-
-  // 3. Fetch Questions & Restore Session
-  const loadQuestions = useCallback(async () => {
-    if (!roleId || hasExistingRoadmap) return;
-
-    setLoadingQuestions(true);
-    setError(null);
-    try {
-      const response = await api.get(`/diagnostic/${roleId}`);
-      const qs = response.data?.questions || [];
-      setQuestions(qs);
-      if (response.data?.roleName) {
-        setRoleName(response.data.roleName);
-      }
-
-      // Restore saved progress from sessionStorage
-      if (storageKey) {
-        try {
-          const savedData = sessionStorage.getItem(storageKey);
-          if (savedData) {
-            const parsed = JSON.parse(savedData);
-            if (parsed.answers && typeof parsed.answers === 'object') {
-              setAnswers(parsed.answers);
-            }
-            if (typeof parsed.currentIndex === 'number' && parsed.currentIndex < qs.length) {
-              setCurrentIndex(parsed.currentIndex);
-            }
-          }
-        } catch (e) {
-          console.warn('Failed to parse saved session diagnostic answers', e);
-        }
-      }
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to load diagnostic questions.';
-      setError(msg);
-    } finally {
-      setLoadingQuestions(false);
-    }
-  }, [roleId, hasExistingRoadmap, storageKey]);
-
-  useEffect(() => {
-    if (roleId && !hasExistingRoadmap && !checkingRoadmap) {
-      loadQuestions();
-    }
-  }, [roleId, hasExistingRoadmap, checkingRoadmap, loadQuestions]);
-
-  // Handle Option Selection
-  const handleSelectOption = (index) => {
-    const currentQ = questions[currentIndex];
-    if (!currentQ) return;
-
-    const updatedAnswers = {
-      ...answers,
-      [currentQ.id]: index,
-    };
-    setAnswers(updatedAnswers);
-
-    // Save to sessionStorage immediately
-    if (storageKey) {
-      try {
-        sessionStorage.setItem(
-          storageKey,
-          JSON.stringify({
-            answers: updatedAnswers,
-            currentIndex,
-          })
-        );
-      } catch (e) {
-        console.warn('Failed to save to sessionStorage', e);
-      }
+  // Scroll to question card smoothly on question jump
+  const jumpToQuestion = (index) => {
+    setCurrentIndex(index);
+    if (questionCardRef.current) {
+      questionCardRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
     }
   };
 
-  const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
-      const nextIdx = currentIndex + 1;
-      setCurrentIndex(nextIdx);
-      if (storageKey) {
-        sessionStorage.setItem(
-          storageKey,
-          JSON.stringify({
-            answers,
-            currentIndex: nextIdx,
-          })
-        );
-      }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handleBack = () => {
-    if (currentIndex > 0) {
-      const prevIdx = currentIndex - 1;
-      setCurrentIndex(prevIdx);
-      if (storageKey) {
-        sessionStorage.setItem(
-          storageKey,
-          JSON.stringify({
-            answers,
-            currentIndex: prevIdx,
-          })
-        );
-      }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handleConfirmSubmit = () => {
-    setShowConfirmModal(false);
-    setIsSubmitting(true);
-
-    const formattedAnswers = questions.map((q) => ({
-      questionId: q.id,
-      selectedIndex: answers[q.id],
-    }));
-
-    // Navigate to /generating while it runs
-    navigate('/generating', {
-      replace: true,
-      state: {
-        roleId,
-        roleName,
-        answers: formattedAnswers,
-        storageKey,
-      },
-    });
-  };
-
-  // State: Checking session or roadmap
-  if (checkingRoadmap) {
+  // 1. Loading State
+  if (loading) {
     return (
-      <div className="page-center-container">
-        <Spinner size="lg" label="Checking roadmap status..." />
-      </div>
-    );
-  }
-
-  // State: Existing Roadmap Guard (Retake only via Settings)
-  if (hasExistingRoadmap && !isRetake) {
-    return (
-      <div className="page-container" style={{ maxWidth: '650px', marginTop: '40px' }}>
-        <Card
-          title="Active Roadmap Already In Progress"
-          subtitle={`You already have an active roadmap for ${user?.targetRole}.`}
-        >
-          <div className="placeholder-notice" style={{ margin: '16px 0' }}>
-            <p>
-              To maintain learning momentum, your diagnostic is not shown automatically when an active curriculum exists. You can review your roadmap on the Dashboard, or choose to retake the diagnostic through Account Settings.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
-            <Link to="/dashboard" className="btn btn-primary">
-              View Active Dashboard &rarr;
-            </Link>
-            <Link to="/settings" className="btn btn-secondary">
-              Go to Settings to Retake
-            </Link>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  // State: Loading Questions
-  if (loadingQuestions) {
-    return (
-      <div className="page-center-container">
-        <Spinner size="lg" label={`Loading diagnostic assessment for ${roleName}...`} />
-      </div>
-    );
-  }
-
-  // State: Error
-  if (error) {
-    return (
-      <div className="page-container" style={{ maxWidth: '600px', marginTop: '40px' }}>
-        <ErrorMessage message={error} onRetry={loadQuestions} />
-        <div style={{ marginTop: '16px' }}>
-          <Link to="/roles" className="btn btn-secondary">
-            &larr; Choose a Different Role
-          </Link>
+      <main id="main-content" className="pf-diagnostic-page" aria-busy="true">
+        <div className="pf-diagnostic-header">
+          <Skeleton width="140px" height="28px" />
+          <Skeleton width="60%" height="36px" />
+          <Skeleton lines={2} />
         </div>
-      </div>
+        <div className="pf-diagnostic-progress-card">
+          <Skeleton width="100%" height="16px" />
+          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} width="44px" height="44px" />
+            ))}
+          </div>
+        </div>
+        <div className="pf-diagnostic-quiz-wrapper">
+          <Skeleton width="40%" height="24px" style={{ marginBottom: '16px' }} />
+          <Skeleton lines={4} height="52px" style={{ marginBottom: '12px' }} />
+        </div>
+      </main>
     );
   }
 
-  if (questions.length === 0) {
+  // 2. Error State
+  if (error) {
+    const isNotFound = error.status === 404 || error.code === 'ROLE_NOT_FOUND';
     return (
-      <div className="page-center-container">
-        <p>No questions found for role {roleName}.</p>
-        <Link to="/roles" className="btn btn-secondary" style={{ marginTop: '16px' }}>
-          Return to Roles
-        </Link>
-      </div>
+      <main id="main-content" className="pf-diagnostic-page">
+        <ErrorState
+          title={isNotFound ? 'Role Not Found' : 'Assessment Unavailable'}
+          message={
+            isNotFound
+              ? `We could not find diagnostic questions for "${roleId}". The role may not exist or has been updated.`
+              : error.message || 'Unable to load diagnostic questions. Please try again.'
+          }
+          onRetry={isNotFound ? () => navigate('/role-selection') : handleRetry}
+          retryLabel={isNotFound ? 'Browse Available Roles' : 'Try Again'}
+        />
+      </main>
     );
   }
 
-  const currentQuestion = questions[currentIndex];
-  const selectedIndexForCurrent = answers[currentQuestion.id];
-  const isAnswered = selectedIndexForCurrent !== undefined;
-  const isLastQuestion = currentIndex === questions.length - 1;
-  const progressPercent = Math.round(((currentIndex + 1) / questions.length) * 100);
-  const totalAnsweredCount = Object.keys(answers).length;
+  // 3. Empty State
+  if (totalQuestions === 0) {
+    return (
+      <main id="main-content" className="pf-diagnostic-page">
+        <EmptyState
+          title="No Questions Available"
+          message="There are no assessment questions configured for this role at the moment."
+          action={
+            <Button variant="primary" onClick={() => navigate('/role-selection')}>
+              Back to Role Selection
+            </Button>
+          }
+        />
+      </main>
+    );
+  }
 
   return (
-    <div className="page-container diagnostic-page-container">
+    <main id="main-content" className="pf-diagnostic-page">
       {/* Header & Meta */}
-      <div className="diagnostic-header">
-        <div className="diagnostic-header-top">
-          <span className="badge badge-active">{roleName} Diagnostic</span>
-          <span className="diagnostic-step-counter">
-            Question <strong>{currentIndex + 1}</strong> of <strong>{questions.length}</strong>
+      <header className="pf-diagnostic-header">
+        <div className="pf-diagnostic-header__badge-row">
+          <span className="pf-diagnostic-role-badge">
+            <span aria-hidden="true">🎯</span> {roleTitle}
+          </span>
+          <span className="pf-diagnostic-hint-badge" aria-hidden="true">
+            ⌨️ 1-5 keys to pick, Enter to advance
           </span>
         </div>
+        <h1 className="pf-diagnostic-title">Diagnostic Assessment</h1>
+        <p className="pf-diagnostic-description">
+          Answer {totalQuestions} self-assessment questions to evaluate your proficiency
+          across essential dimensions. Your answers will tailor your custom roadmap.
+        </p>
+      </header>
 
-        {/* Progress Bar */}
-        <div style={{ marginTop: '12px' }}>
-          <ProgressBar
-            value={progressPercent}
-            label={`Assessment Progress (${totalAnsweredCount} of ${questions.length} answered)`}
-            showPercentage={true}
+      {/* Progress & Navigator */}
+      <section className="pf-diagnostic-progress-card" aria-label="Assessment Progress">
+        <ProgressBar
+          value={answeredCount}
+          max={totalQuestions}
+          label={`Question ${currentIndex + 1} of ${totalQuestions}`}
+          showValueText={true}
+        />
+
+        {/* Question Navigator */}
+        <nav className="pf-diagnostic-navigator" aria-label="Question Navigator">
+          <span className="pf-diagnostic-navigator__label">
+            Questions ({answeredCount}/{totalQuestions} answered)
+          </span>
+          <div className="pf-diagnostic-navigator__dots" role="list">
+            {questions.map((q, idx) => {
+              const isAnswered = answers[q.id] !== undefined;
+              const isActive = idx === currentIndex;
+              const dotClass = [
+                'pf-diagnostic-nav-dot',
+                isActive ? 'pf-diagnostic-nav-dot--active' : '',
+                isAnswered ? 'pf-diagnostic-nav-dot--answered' : '',
+              ]
+                .filter(Boolean)
+                .join(' ');
+
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  className={dotClass}
+                  onClick={() => jumpToQuestion(idx)}
+                  aria-label={`Question ${idx + 1}: ${isAnswered ? 'Answered' : 'Unanswered'}${isActive ? ', Current Question' : ''}`}
+                  aria-current={isActive ? 'step' : undefined}
+                >
+                  {idx + 1}
+                  {isAnswered && !isActive && (
+                    <span className="pf-diagnostic-nav-dot__badge" aria-hidden="true" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </section>
+
+      {/* Active Question */}
+      <section
+        ref={questionCardRef}
+        className="pf-diagnostic-quiz-wrapper"
+        aria-live="polite"
+      >
+        {currentQuestion && (
+          <QuizQuestion
+            questionId={currentQuestion.id}
+            questionNumber={currentIndex + 1}
+            questionText={currentQuestion.text || currentQuestion.question}
+            subtitle={currentQuestion.dimension}
+            options={currentQuestion.options}
+            selectedIndex={answers[currentQuestion.id] ?? null}
+            onSelectOption={(idx) => handleSelectOption(currentQuestion.id, idx)}
           />
-        </div>
-      </div>
+        )}
+      </section>
 
-      {/* Main Single-Question Card */}
-      <QuizQuestion
-        question={currentQuestion}
-        selectedIndex={selectedIndexForCurrent}
-        onSelectOption={handleSelectOption}
-      />
-
-      {/* Navigation Buttons: Back, Next, Submit */}
-      <div className="diagnostic-nav-bar">
-        <Button
-          variant="secondary"
-          onClick={handleBack}
-          disabled={currentIndex === 0 || isSubmitting}
+      {/* Unanswered Banner on Last Question */}
+      {isLastQuestion && unansweredIndices.length > 0 && (
+        <aside
+          className="pf-diagnostic-unanswered-banner"
+          role="alert"
+          aria-live="polite"
         >
-          &larr; Back
-        </Button>
+          <div className="pf-diagnostic-unanswered-banner__header">
+            <span aria-hidden="true">⚠️</span>
+            <span>
+              {unansweredIndices.length} Question
+              {unansweredIndices.length > 1 ? 's' : ''} Remaining
+            </span>
+          </div>
+          <p className="pf-diagnostic-unanswered-banner__text">
+            Please answer all diagnostic questions before submitting your assessment:
+          </p>
+          <div className="pf-diagnostic-unanswered-banner__chips">
+            {unansweredIndices.map((uIdx) => (
+              <button
+                key={uIdx}
+                type="button"
+                className="pf-diagnostic-jump-chip"
+                onClick={() => jumpToQuestion(uIdx)}
+                aria-label={`Jump to unanswered question ${uIdx + 1}`}
+              >
+                Go to Question {uIdx + 1} ({questions[uIdx].dimension})
+              </button>
+            ))}
+          </div>
+        </aside>
+      )}
 
-        <div className="diagnostic-nav-right">
+      {/* Actions Bar */}
+      <footer className="pf-diagnostic-actions">
+        <div className="pf-diagnostic-actions__left">
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            disabled={currentIndex === 0}
+            onClick={() => jumpToQuestion(currentIndex - 1)}
+            aria-label="Previous question"
+          >
+            ← Previous
+          </Button>
+        </div>
+
+        <div className="pf-diagnostic-actions__right">
           {!isLastQuestion ? (
             <Button
+              type="button"
               variant="primary"
-              onClick={handleNext}
-              disabled={!isAnswered || isSubmitting}
+              size="md"
+              onClick={() => jumpToQuestion(currentIndex + 1)}
+              aria-label="Next question"
             >
-              Next &rarr;
+              Next →
             </Button>
           ) : (
             <Button
+              type="button"
               variant="primary"
-              onClick={() => setShowConfirmModal(true)}
-              disabled={!isAnswered || isSubmitting}
+              size="md"
+              disabled={!isAllAnswered || isSubmitting}
               loading={isSubmitting}
-              className="btn-submit-diagnostic"
+              onClick={() => setShowConfirmModal(true)}
+              aria-label="Submit diagnostic assessment"
             >
               Submit Assessment
             </Button>
           )}
         </div>
-      </div>
+      </footer>
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div
-          className="modal-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="confirm-modal-title"
-          onClick={() => !isSubmitting && setShowConfirmModal(false)}
+          className="pf-diagnostic-modal-backdrop"
+          onClick={() => setShowConfirmModal(false)}
         >
           <div
-            className="modal-card"
-            ref={confirmModalRef}
+            className="pf-diagnostic-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-modal-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="confirm-modal-title" className="modal-title">
-              Submit Diagnostic Assessment
-            </h3>
-            <p className="modal-body-text">
-              You have answered all <strong>{questions.length}</strong> questions for the{' '}
-              <strong>{roleName}</strong> diagnostic.
-            </p>
-            <p className="modal-body-text" style={{ marginTop: '8px', color: 'var(--color-text-secondary)' }}>
-              Once submitted, our engine will score your skill dimensions and generate your customized learning roadmap.
-            </p>
+            <div className="pf-diagnostic-modal__header">
+              <div className="pf-diagnostic-modal__icon" aria-hidden="true">
+                🚀
+              </div>
+              <div className="pf-diagnostic-modal__title-group">
+                <h2 id="confirm-modal-title" className="pf-diagnostic-modal__title">
+                  Ready to Submit?
+                </h2>
+                <p className="pf-diagnostic-modal__subtitle">
+                  Generate your personalized {roleTitle} roadmap
+                </p>
+              </div>
+            </div>
 
-            <div className="modal-actions">
+            <div className="pf-diagnostic-modal__summary">
+              <div>
+                <strong>Completed:</strong> {totalQuestions} of {totalQuestions} questions
+                answered.
+              </div>
+              <div>
+                PathForge will analyze your skill proficiency across all evaluated
+                dimensions and craft a step-by-step roadmap tailored to your gaps.
+              </div>
+            </div>
+
+            <div className="pf-diagnostic-modal__actions">
               <Button
-                variant="secondary"
-                ref={reviewBtnRef}
-                onClick={() => setShowConfirmModal(false)}
+                type="button"
+                variant="ghost"
+                size="md"
                 disabled={isSubmitting}
+                onClick={() => setShowConfirmModal(false)}
               >
                 Review Answers
               </Button>
               <Button
+                type="button"
                 variant="primary"
-                onClick={handleConfirmSubmit}
-                loading={isSubmitting}
+                size="md"
                 disabled={isSubmitting}
+                loading={isSubmitting}
+                onClick={handleConfirmSubmit}
               >
-                Confirm &amp; Submit
+                Yes, Generate Roadmap
               </Button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
-};
-
-export default DiagnosticPage;
+}

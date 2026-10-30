@@ -1,318 +1,404 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import Card from '../components/Card';
-import ErrorMessage from '../components/ErrorMessage';
-import ReadinessScore from '../components/ReadinessScore';
-import ReadinessHistoryChart from '../components/ReadinessHistoryChart';
-import DashboardSkeleton from '../components/DashboardSkeleton';
-import { useAuth } from '../context/AuthContext';
-import { useRoadmap } from '../context/RoadmapContext';
-import { useToast } from '../hooks/useToast';
-import api from '../services/api';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import * as api from '../services/api.js';
+import { usePageTitle } from '../hooks/usePageTitle.js';
+import ReadinessScore from '../components/ReadinessScore.jsx';
+import StepperModule from '../components/StepperModule.jsx';
+import ProgressBar from '../components/ProgressBar.jsx';
+import Button from '../components/Button.jsx';
+import Skeleton from '../components/Skeleton.jsx';
+import EmptyState from '../components/EmptyState.jsx';
+import ErrorState from '../components/ErrorState.jsx';
+import './DashboardPage.css';
 
-const DashboardPage = () => {
-  const { user } = useAuth();
-  const { roadmap, setRoadmap } = useRoadmap();
-  const { addToast } = useToast();
+function getRoleTitle(id, rolesList = []) {
+  const match = rolesList.find((r) => r.id === id);
+  if (match?.title) return match.title;
+  if (id === 'mern-developer') return 'MERN Developer';
+  if (id === 'data-analyst') return 'Data Analyst';
+  return id
+    ? id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : 'Selected Role';
+}
+
+export default function DashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const updatedModuleId = location.state?.updatedModuleId;
+  usePageTitle('Curriculum Dashboard');
 
-  const highlightedModuleId = location.state?.highlightedModuleId;
-  const changedModuleIds = location.state?.changedModuleIds || [];
-  const replanToast = location.state?.replanToast;
-  const highlightedRef = useRef(null);
+  const [roadmap, setRoadmap] = useState(null);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [localLoading, setLocalLoading] = useState(!roadmap);
-  const [localError, setLocalError] = useState(null);
+  // Fetch roadmap and roles list
+  const loadDashboardData = useCallback(() => {
+    let isCancelled = false;
 
-  const fetchDashboardRoadmap = useCallback(async () => {
-    setLocalLoading(true);
-    setLocalError(null);
-
-    try {
-      const response = await api.get('/roadmap');
-      if (response.data && response.data.roadmap) {
-        setRoadmap(response.data.roadmap);
-      } else {
-        setRoadmap(null);
-      }
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setRoadmap(null);
-      } else {
-        const msg =
-          err.response?.data?.message ||
-          'Failed to load your roadmap. Please check your connection and try again.';
-        setLocalError(msg);
-      }
-    } finally {
-      setLocalLoading(false);
-    }
-  }, [setRoadmap]);
-
-  useEffect(() => {
-    fetchDashboardRoadmap();
-  }, [fetchDashboardRoadmap]);
-
-  // Toast for adaptive re-planning updates
-  useEffect(() => {
-    if (replanToast) {
-      addToast('Roadmap updated based on your result', 'info');
-      navigate(location.pathname, {
-        replace: true,
-        state: {
-          ...location.state,
-          replanToast: false,
-        },
+    Promise.all([api.getRoadmap(), api.getRoles().catch(() => ({ roles: [] }))])
+      .then(([roadmapRes, rolesRes]) => {
+        if (!isCancelled) {
+          setRoadmap(roadmapRes.roadmap || null);
+          setRoles(rolesRes.roles || []);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!isCancelled) {
+          setError(err);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setLoading(false);
+        }
       });
-    }
-  }, [replanToast, addToast, navigate, location.pathname, location.state]);
 
-  // Scroll highlighted or changed module into view
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  // Initial fetch on mount
   useEffect(() => {
-    if ((highlightedModuleId || changedModuleIds.length > 0) && highlightedRef.current) {
-      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [highlightedModuleId, changedModuleIds, roadmap]);
+    const cleanup = loadDashboardData();
+    return cleanup;
+  }, [loadDashboardData]);
 
-  // 1. Loading State with Skeletons
-  if (localLoading && !roadmap) {
-    return <DashboardSkeleton />;
+  // Refetch when window regains focus (e.g. returning from module detail in another tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadDashboardData();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [loadDashboardData]);
+
+  // Derived metrics and memoized callbacks
+  const modules = useMemo(() => roadmap?.modules || [], [roadmap]);
+  const totalModules = modules.length;
+  const completedModules = useMemo(
+    () => modules.filter((m) => m.status === 'complete').length,
+    [modules],
+  );
+  const allComplete = totalModules > 0 && completedModules === totalModules;
+  const hoursRemaining = useMemo(
+    () =>
+      modules
+        .filter((m) => m.status !== 'complete')
+        .reduce((sum, m) => sum + (m.estimatedHours || 0), 0),
+    [modules],
+  );
+  const readinessScore = roadmap?.readinessScore ?? 0;
+  const roleTitle = useMemo(
+    () => getRoleTitle(roadmap?.roleId, roles),
+    [roadmap?.roleId, roles],
+  );
+
+  const handleModuleClick = useCallback(
+    (moduleId) => {
+      navigate(`/module/${encodeURIComponent(moduleId)}`);
+    },
+    [navigate],
+  );
+
+  // 1. Loading Skeleton State
+  if (loading) {
+    return (
+      <main id="main-content" className="pf-dashboard-page" aria-busy="true">
+        <div className="pf-dashboard-header">
+          <div className="pf-dashboard-header__text">
+            <Skeleton width="120px" height="24px" />
+            <Skeleton width="280px" height="36px" />
+            <Skeleton width="340px" height="18px" />
+          </div>
+        </div>
+
+        <div className="pf-dashboard-grid">
+          <div className="pf-dashboard-sidebar">
+            <div className="pf-dashboard-score-card">
+              <Skeleton
+                variant="circle"
+                width="120px"
+                height="120px"
+                style={{ margin: '0 auto' }}
+              />
+              <Skeleton width="80%" height="20px" />
+              <Skeleton width="100%" height="40px" />
+            </div>
+          </div>
+
+          <div className="pf-dashboard-content">
+            <div className="pf-dashboard-summary-card">
+              <Skeleton width="50%" height="22px" />
+              <Skeleton width="100%" height="16px" />
+            </div>
+
+            <div className="pf-dashboard-stepper-list">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  width="100%"
+                  height="100px"
+                  style={{ marginBottom: '16px', borderRadius: '12px' }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
   }
 
-  // 2. Error State with Retry
-  if (localError && !roadmap) {
-    return (
-      <div className="page-container dashboard-error-wrapper">
-        <div style={{ maxWidth: '600px', margin: '48px auto' }}>
-          <ErrorMessage
-            message={localError}
-            onRetry={fetchDashboardRoadmap}
+  // 2. Error & Empty State Handling
+  if (error) {
+    const isNoRoadmap = error.code === 'NO_ROADMAP' || error.status === 404;
+
+    if (isNoRoadmap) {
+      return (
+        <main id="main-content" className="pf-dashboard-page">
+          <EmptyState
+            title="No Learning Roadmap Found"
+            message="You haven't generated a personalized roadmap yet. Select your target career role and take the diagnostic assessment to build your curriculum!"
+            action={
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => navigate('/role-selection')}
+              >
+                Select Role & Start Diagnostic
+              </Button>
+            }
           />
-          <div style={{ marginTop: '20px', textAlign: 'center' }}>
-            <Link to="/roles" className="btn btn-secondary">
-              View Available Roles
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 3. Empty State: No Target Role or No Roadmap Yet
-  if (!roadmap) {
-    return (
-      <div className="page-container dashboard-empty-wrapper">
-        <div className="dashboard-empty-card">
-          <div className="empty-icon-bubble" aria-hidden="true">🗺️</div>
-          <h2 className="empty-card-title">
-            {!user?.targetRole ? 'No Target Role Selected' : 'No Active Roadmap Yet'}
-          </h2>
-          <p className="empty-card-text">
-            {!user?.targetRole
-              ? 'Select a technical career path to unlock your targeted competency diagnostic and customized milestone curriculum.'
-              : `You are targeting ${user.targetRole}, but have not taken the skill diagnostic yet. Take the 12-question diagnostic to generate your personalized roadmap.`}
-          </p>
-
-          <div className="empty-card-actions">
-            {!user?.targetRole ? (
-              <Link to="/roles" className="btn btn-primary btn-hero">
-                Choose Your Target Role &rarr;
-              </Link>
-            ) : (
-              <Link to="/diagnostic" className="btn btn-primary btn-hero">
-                Start Skill Diagnostic &rarr;
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Memoized Metrics & Handlers to avoid unnecessary re-renders
-  const modules = roadmap.modules || [];
-  const completedCount = modules.filter((m) => m.status === 'complete').length;
-  const totalCount = modules.length;
-  const readinessValue = typeof roadmap.readinessScore === 'number' ? roadmap.readinessScore : 0;
-  const roleTitle = user?.targetRole || 'Software Engineering';
-
-  const handleModuleClick = (mod) => {
-    if (mod.status === 'active' || mod.status === 'complete') {
-      const id = mod.moduleId || mod._id || mod.id;
-      navigate(`/module/${id}`);
+        </main>
+      );
     }
-  };
+
+    return (
+      <main id="main-content" className="pf-dashboard-page">
+        <ErrorState
+          title="Unable to Load Dashboard"
+          message={
+            error.message ||
+            'We encountered an issue fetching your roadmap. Please check your connection and try again.'
+          }
+          onRetry={handleRetry}
+          retryLabel="Try Again"
+        />
+      </main>
+    );
+  }
+
+  // 3. Empty Roadmap Guard
+  if (modules.length === 0) {
+    return (
+      <main id="main-content" className="pf-dashboard-page">
+        <EmptyState
+          title="No Modules in Roadmap"
+          message="Your roadmap currently has no modules. You can re-take the diagnostic assessment to generate an updated roadmap."
+          action={
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => navigate('/role-selection')}
+            >
+              Configure Career Role
+            </Button>
+          }
+        />
+      </main>
+    );
+  }
 
   return (
-    <div className="page-container dashboard-page-wrapper">
-      {/* Page Header */}
-      <div className="dashboard-page-header">
-        <div className="dashboard-header-titles">
-          <span className="dashboard-kicker">Learner Journey</span>
-          <h1 className="dashboard-main-title">{roleTitle} Curriculum</h1>
-          <p className="dashboard-main-subtitle">
-            Track your milestone progress, complete modules, and advance your career readiness.
+    <main id="main-content" className="pf-dashboard-page">
+      {/* Mobile Sticky Top Bar with Compact Readiness Gauge */}
+      <div
+        className="pf-dashboard-mobile-sticky-bar"
+        aria-label="Current Progress Summary"
+      >
+        <div className="pf-dashboard-mobile-sticky-info">
+          <span className="pf-dashboard-mobile-sticky-role">{roleTitle}</span>
+          <span className="pf-dashboard-mobile-sticky-meta">
+            {completedModules}/{totalModules} Modules • {hoursRemaining}h left
+          </span>
+        </div>
+        <ReadinessScore score={readinessScore} compact={true} />
+      </div>
+
+      {/* Main Header */}
+      <header className="pf-dashboard-header">
+        <div className="pf-dashboard-header__text">
+          <span className="pf-dashboard-role-badge">
+            <span aria-hidden="true">🎯</span> {roleTitle}
+          </span>
+          <h1 className="pf-dashboard-title">Your Learning Dashboard</h1>
+          <p className="pf-dashboard-subtitle">
+            Follow your personalized curriculum, complete checkpoints, and track your
+            employability readiness.
           </p>
         </div>
 
-        <div className="dashboard-header-actions">
-          <Link to="/roles" className="btn btn-secondary" title="Switch your target tech role">
-            Switch Role
-          </Link>
-          <Link to="/settings" className="btn btn-secondary" title="Retake diagnostic or manage profile">
-            Settings
-          </Link>
+        <div className="pf-dashboard-header__actions">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleRetry}
+            aria-label="Refresh roadmap progress"
+          >
+            ↻ Refresh
+          </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Top Section: Pinned / Prioritized Readiness Score & Chart */}
-      <section className="dashboard-top-section" aria-label="Readiness Overview">
-        <Card className="readiness-score-card">
-          <ReadinessScore
-            score={readinessValue}
-            completedCount={completedCount}
-            totalCount={totalCount}
-          />
-        </Card>
+      {/* Responsive Two-Column Grid */}
+      <div className="pf-dashboard-grid">
+        {/* Desktop Sidebar with Full Gauge & Metrics */}
+        <aside
+          className="pf-dashboard-sidebar"
+          aria-label="Readiness and Progress Metrics"
+        >
+          <div className="pf-dashboard-score-card">
+            <ReadinessScore
+              score={readinessScore}
+              compact={false}
+              label="Employability Readiness"
+            />
 
-        {/* Readiness Over Time Chart (hidden if < 2 points) */}
-        {roadmap.history && roadmap.history.length >= 2 && (
-          <Card className="readiness-chart-card">
-            <ReadinessHistoryChart history={roadmap.history} />
-          </Card>
-        )}
-      </section>
+            <div className="pf-dashboard-sidebar-metrics">
+              <div className="pf-dashboard-metric-box">
+                <span className="pf-dashboard-metric-val">
+                  {completedModules}/{totalModules}
+                </span>
+                <span className="pf-dashboard-metric-lbl">Modules Done</span>
+              </div>
 
-      {/* Main Section: Vertical Stepper of Module Cards */}
-      <section className="dashboard-modules-section" aria-label="Curriculum Milestones">
-        <div className="section-title-bar">
-          <h2 className="section-title">Milestone Roadmap</h2>
-          <span className="modules-count-tag">
-            {completedCount} of {totalCount} Completed
-          </span>
-        </div>
+              <div className="pf-dashboard-metric-box">
+                <span className="pf-dashboard-metric-val">{hoursRemaining}h</span>
+                <span className="pf-dashboard-metric-lbl">Remaining</span>
+              </div>
+            </div>
 
-        <div className="vertical-stepper" role="list">
-          {modules.map((mod, index) => {
-            const isComplete = mod.status === 'complete';
-            const isActive = mod.status === 'active';
-            const isLocked = mod.status === 'locked';
-            const isClickable = isActive || isComplete;
-            const isChanged =
-              changedModuleIds.includes(mod.moduleId) ||
-              (mod._id && changedModuleIds.includes(mod._id.toString()));
-            const isHighlighted =
-              isChanged ||
-              (highlightedModuleId &&
-                (mod.moduleId === highlightedModuleId || mod._id?.toString() === highlightedModuleId));
+            <div className="pf-dashboard-sidebar-progress">
+              <ProgressBar
+                value={completedModules}
+                max={totalModules}
+                label="Overall Progress"
+                showValueText={true}
+              />
+            </div>
+          </div>
+        </aside>
 
-            return (
-              <div
-                key={mod._id || mod.id || index}
-                ref={isHighlighted ? highlightedRef : null}
-                className={`stepper-item ${isComplete ? 'step-complete' : ''} ${isActive ? 'step-active' : ''} ${isLocked ? 'step-locked' : ''} ${isHighlighted ? 'step-highlighted' : ''}`}
-                data-module-id={mod.moduleId || mod._id || mod.id}
-                data-status={mod.status}
-                role="listitem"
-              >
-                {/* Stepper Node & Connecting Line */}
-                <div className="stepper-rail">
-                  <div className={`stepper-node stepper-node-${mod.status} ${isChanged ? 'stepper-node-changed' : isHighlighted ? 'stepper-node-highlighted' : ''}`}>
-                    {isComplete && <span className="node-icon">✓</span>}
-                    {isActive && <span className="node-icon">▶</span>}
-                    {isLocked && <span className="node-icon">🔒</span>}
-                  </div>
-                  {index < modules.length - 1 && <div className="stepper-line"></div>}
+        {/* Main Content: Summary, Congratulations & Vertical Stepper */}
+        <section className="pf-dashboard-content">
+          {/* Summary Row Card */}
+          <div className="pf-dashboard-summary-card">
+            <div className="pf-dashboard-summary-header">
+              <h2 className="pf-dashboard-summary-title">Curriculum Progress</h2>
+              <span className="pf-dashboard-summary-meta">Role: {roleTitle}</span>
+            </div>
+
+            <div className="pf-dashboard-summary-stats">
+              <div className="pf-dashboard-stat-item">
+                <span className="pf-dashboard-stat-icon" aria-hidden="true">
+                  📚
+                </span>
+                <span>
+                  <strong>{completedModules}</strong> of <strong>{totalModules}</strong>{' '}
+                  modules completed
+                </span>
+              </div>
+
+              <div className="pf-dashboard-stat-item">
+                <span className="pf-dashboard-stat-icon" aria-hidden="true">
+                  ⏱
+                </span>
+                <span>
+                  <strong>{hoursRemaining}</strong> hours estimated remaining
+                </span>
+              </div>
+            </div>
+
+            <ProgressBar
+              value={completedModules}
+              max={totalModules}
+              label="Curriculum Milestones"
+              showValueText={true}
+            />
+          </div>
+
+          {/* Congratulations Banner on All Modules Complete */}
+          {allComplete && (
+            <div className="pf-dashboard-congrats-banner" role="alert" aria-live="polite">
+              <div className="pf-dashboard-congrats-left">
+                <div className="pf-dashboard-congrats-icon" aria-hidden="true">
+                  🏆
                 </div>
-
-                {/* Module Card */}
-                <div
-                  className={`stepper-card-wrapper ${isClickable ? 'stepper-card-clickable' : 'stepper-card-unclickable'}`}
-                  onClick={() => handleModuleClick(mod)}
-                  onKeyDown={(e) => {
-                    if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
-                      e.preventDefault();
-                      handleModuleClick(mod);
-                    }
-                  }}
-                  tabIndex={isClickable ? 0 : -1}
-                  role={isClickable ? 'link' : 'region'}
-                  aria-label={`${mod.title}, status: ${mod.status}`}
-                >
-                  <Card
-                    className={`stepper-module-card ${isActive ? 'module-card-active' : ''} ${isChanged ? 'module-card-changed' : isHighlighted ? 'module-card-highlighted' : ''}`}
-                  >
-                    <div className="module-card-header">
-                      <div className="module-title-group">
-                        <span className="module-step-counter">Milestone {index + 1}</span>
-                        <h3 className="module-title">
-                          {mod.title}
-                          {isChanged && (
-                            <span className="badge badge-warning" style={{ marginLeft: '8px', fontSize: '0.7rem' }}>
-                              ✨ Updated
-                            </span>
-                          )}
-                        </h3>
-                      </div>
-
-                      <div className="module-badge-wrapper">
-                        {isComplete && (
-                          <span className="badge badge-complete">
-                            Complete ✓
-                          </span>
-                        )}
-                        {isActive && (
-                          <span className="badge badge-active">
-                            Active ▶
-                          </span>
-                        )}
-                        {isLocked && (
-                          <span className="badge badge-locked">
-                            Locked 🔒
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <p className="module-description">
-                      {mod.description || 'Master key concepts, practical implementations, and verify checkpoint questions.'}
-                    </p>
-
-                    <div className="module-card-footer">
-                      <span className="module-estimated-hours">
-                        ⏱️ Estimated: <strong>{mod.estimatedHours || 10} hrs</strong>
-                      </span>
-
-                      {/* Action Prompt / Locked Explanation */}
-                      <div className="module-footer-action">
-                        {isActive && (
-                          <span className="module-action-link active-link">
-                            Continue Module &rarr;
-                          </span>
-                        )}
-                        {isComplete && (
-                          <span className="module-action-link complete-link">
-                            Review Module &rarr;
-                          </span>
-                        )}
-                        {isLocked && (
-                          <div className="locked-explanation">
-                            <span className="lock-icon" aria-hidden="true">🔒</span>
-                            <span>Locked &bull; Complete preceding milestone to unlock</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
+                <div>
+                  <h3 className="pf-dashboard-congrats-title">
+                    Outstanding Work! All Modules Complete
+                  </h3>
+                  <p className="pf-dashboard-congrats-desc">
+                    You have mastered every step in your {roleTitle} curriculum. Your
+                    skills and readiness are verified for employer demand!
+                  </p>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
-};
 
-export default DashboardPage;
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => navigate('/role-selection')}
+              >
+                Explore Other Tracks
+              </Button>
+            </div>
+          )}
+
+          {/* Vertical Stepper List */}
+          <div className="pf-dashboard-stepper-section">
+            <div className="pf-dashboard-stepper-heading">
+              <h2 className="pf-dashboard-stepper-title">Curriculum Modules</h2>
+              <span className="pf-dashboard-stepper-sub">
+                Click active or completed modules to study
+              </span>
+            </div>
+
+            <div
+              className="pf-dashboard-stepper-list"
+              role="list"
+              aria-label="Roadmap Modules"
+            >
+              {modules.map((m, idx) => (
+                <StepperModule
+                  key={m.moduleId || idx}
+                  stepNumber={idx + 1}
+                  title={m.title}
+                  description={m.description}
+                  estimatedHours={m.estimatedHours}
+                  status={m.status}
+                  isLast={idx === modules.length - 1}
+                  isUpdated={
+                    Boolean(updatedModuleId) &&
+                    (m.moduleId === updatedModuleId ||
+                      m.resourceTags?.includes('Advanced'))
+                  }
+                  onClick={() => handleModuleClick(m.moduleId)}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}

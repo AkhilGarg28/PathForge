@@ -1,23 +1,25 @@
-import React from 'react';
-import Spinner from './Spinner';
+import './Button.css';
 
-const Button = ({
+/**
+ * Accessible button supporting primary, secondary, ghost, danger variants,
+ * loading spinner state, custom sizes, and minimum 44px touch targets.
+ */
+export default function Button({
   children,
-  variant = 'primary', // 'primary' | 'secondary'
-  disabled = false,
+  variant = 'primary',
+  size = 'md',
   loading = false,
+  disabled = false,
   type = 'button',
   onClick,
   className = '',
   ...props
-}) => {
-  const isDisabled = disabled || loading;
-
-  const btnClasses = [
-    'btn',
-    variant === 'secondary' ? 'btn-secondary' : 'btn-primary',
-    loading ? 'btn-loading' : '',
-    isDisabled ? 'btn-disabled' : '',
+}) {
+  const classes = [
+    'pf-button',
+    `pf-button--${variant}`,
+    `pf-button--${size}`,
+    loading ? 'pf-button--loading' : '',
     className,
   ]
     .filter(Boolean)
@@ -26,21 +28,14 @@ const Button = ({
   return (
     <button
       type={type}
-      disabled={isDisabled}
-      onClick={isDisabled ? undefined : onClick}
-      className={btnClasses}
+      className={classes}
+      disabled={disabled || loading}
+      onClick={onClick}
+      aria-busy={loading}
       {...props}
     >
-      {loading ? (
-        <span className="btn-content-loading">
-          <Spinner size="sm" inline label="Processing..." />
-          <span className="btn-text">{children}</span>
-        </span>
-      ) : (
-        <span className="btn-text">{children}</span>
-      )}
+      {loading && <span className="pf-button__spinner" aria-hidden="true" />}
+      <span>{children}</span>
     </button>
   );
-};
-
-export default Button;
+}

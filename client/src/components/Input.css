@@ -1,0 +1,103 @@
+.pf-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  font-family: var(--font-sans);
+  width: 100%;
+}
+
+.pf-input-group__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+
+.pf-input-group__required {
+  color: var(--color-error-text);
+}
+
+.pf-input-group__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.pf-input-group__field {
+  width: 100%;
+  min-height: var(--touch-target-min);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface-card);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.pf-input-group__control--has-toggle .pf-input-group__field {
+  padding-right: calc(var(--touch-target-min) + var(--space-1));
+}
+
+.pf-input-group__field:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+.pf-input-group__field--error {
+  border-color: var(--color-error-fill);
+}
+
+.pf-input-group__field--error:focus-visible {
+  border-color: var(--color-error-fill);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.35);
+}
+
+.pf-input-group__field:disabled {
+  background-color: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* Password visibility toggle button */
+.pf-input-group__toggle-btn {
+  position: absolute;
+  right: var(--space-1);
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  padding: var(--space-0-5);
+}
+
+.pf-input-group__toggle-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.pf-input-group__toggle-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.pf-input-group__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.pf-input-group__error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error-text);
+  font-weight: var(--font-weight-medium);
+}

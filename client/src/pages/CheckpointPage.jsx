@@ -1,511 +1,515 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Spinner from '../components/Spinner';
-import ProgressBar from '../components/ProgressBar';
-import ErrorMessage from '../components/ErrorMessage';
-import QuizQuestion from '../components/QuizQuestion';
-import { useRoadmap } from '../context/RoadmapContext';
-import { useToast } from '../hooks/useToast';
-import api from '../services/api';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import * as api from '../services/api.js';
+import { useToast } from '../hooks/useToast.js';
+import { usePageTitle } from '../hooks/usePageTitle.js';
+import Button from '../components/Button.jsx';
+import ProgressBar from '../components/ProgressBar.jsx';
+import Skeleton from '../components/Skeleton.jsx';
+import ErrorState from '../components/ErrorState.jsx';
+import EmptyState from '../components/EmptyState.jsx';
+import QuizQuestion from '../components/QuizQuestion.jsx';
+import Modal from '../components/Modal.jsx';
+import './CheckpointPage.css';
 
-/**
- * CheckpointPage Component
- *
- * Route: /module/:moduleId/checkpoint
- *
- * Implements conceptual checkpoint assessment for active modules.
- * Adapts roadmap curriculum based on learner performance:
- * - Score >= 80: Fast-tracks curriculum (compresses/removes redundant module)
- * - Score < 40: Inserts a focused remedial review module
- * - Score 40-79: Advances module with standard curriculum
- * - Fallback (404): Falls back to plain module completion
- */
-const CheckpointPage = () => {
+export default function CheckpointPage() {
   const { moduleId } = useParams();
   const navigate = useNavigate();
-  const { roadmap, setRoadmap } = useRoadmap();
-  const { addToast } = useToast();
+  const { success, error: toastError, info } = useToast();
+  usePageTitle('Module Checkpoint');
 
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const isCheckpointEnabled = import.meta.env.VITE_ENABLE_CHECKPOINT === 'true';
 
-  // Fallback state if 404 (no checkpoint exists for this module)
-  const [noCheckpointFallback, setNoCheckpointFallback] = useState(false);
-  const [completingFallback, setCompletingFallback] = useState(false);
-
-  // Checkpoint questions and answers state
+  const [checkpointTitle, setCheckpointTitle] = useState('');
   const [questions, setQuestions] = useState([]);
   const [moduleTitle, setModuleTitle] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({});
-
-  // Result state after submission
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
 
-  // 1. Resolve Module from Context or API
-  const currentModule = useMemo(() => {
-    if (!roadmap?.modules) return null;
-    return roadmap.modules.find(
-      (m) =>
-        m.moduleId === moduleId ||
-        m._id?.toString() === moduleId ||
-        m.id?.toString() === moduleId
-    );
-  }, [roadmap, moduleId]);
+  const questionCardRef = useRef(null);
 
-  // 2. Fetch Checkpoint Questions
-  const loadCheckpointQuestions = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setNoCheckpointFallback(false);
-
-    try {
-      const response = await api.get(`/roadmap/module/${moduleId}/checkpoint`);
-      const qs = response.data?.questions || [];
-
-      if (qs.length === 0) {
-        setNoCheckpointFallback(true);
-        return;
-      }
-
-      setQuestions(qs);
-      setModuleTitle(
-        response.data?.moduleTitle || currentModule?.title || 'Milestone Checkpoint'
-      );
-    } catch (err) {
-      if (err.response?.status === 404) {
-        // Module has no checkpoint or directs to plain completion
-        setNoCheckpointFallback(true);
-      } else {
-        const msg =
-          err.response?.data?.message ||
-          'Failed to load checkpoint assessment questions. Please try again.';
-        setError(msg);
-      }
-    } finally {
-      setLoading(false);
+  // 1. Feature Flag Guard: redirect to dashboard if disabled
+  useEffect(() => {
+    if (!isCheckpointEnabled) {
+      navigate('/dashboard', { replace: true });
     }
-  }, [moduleId, currentModule?.title]);
+  }, [isCheckpointEnabled, navigate]);
+
+  // 2. Fetch Checkpoint Questions & Verify Locked Status
+  const loadCheckpointData = useCallback(() => {
+    let isCancelled = false;
+
+    Promise.all([api.getRoadmap(), api.getCheckpoint(moduleId)])
+      .then(([roadmapRes, cpRes]) => {
+        if (isCancelled) return;
+
+        const targetModule = roadmapRes.roadmap?.modules?.find(
+          (m) => m.moduleId === moduleId,
+        );
+
+        if (!targetModule) {
+          info(`Module "${moduleId}" was not found.`);
+          navigate('/dashboard', { replace: true });
+          return;
+        }
+
+        if (targetModule.status === 'locked') {
+          info('This module is locked. Checkpoint is unavailable.');
+          navigate('/dashboard', { replace: true });
+          return;
+        }
+
+        setModuleTitle(targetModule.title || moduleId);
+        setCheckpointTitle(cpRes.title || 'Module Checkpoint');
+        setQuestions(cpRes.questions || []);
+        setError(null);
+      })
+      .catch((err) => {
+        if (isCancelled) return;
+        if (err.code === 'NO_ROADMAP' || err.status === 404) {
+          info('No active roadmap found.');
+          navigate('/role-selection', { replace: true });
+          return;
+        }
+        setError(err);
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [moduleId, info, navigate]);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadCheckpointData();
+  }, [loadCheckpointData]);
 
   useEffect(() => {
-    loadCheckpointQuestions();
-  }, [loadCheckpointQuestions]);
+    if (!isCheckpointEnabled) return;
+    const cleanup = loadCheckpointData();
+    return cleanup;
+  }, [isCheckpointEnabled, loadCheckpointData]);
 
-  // 3. Fallback: Plain Mark as Complete
-  const handlePlainComplete = async () => {
-    setCompletingFallback(true);
-    try {
-      const response = await api.patch(`/roadmap/module/${moduleId}/complete`);
-      const updated = response.data?.roadmap;
-      if (updated) {
-        setRoadmap(updated);
-      }
-      addToast('Module completed successfully! Next milestone unlocked.', 'success');
-      navigate('/dashboard', {
-        state: {
-          highlightedModuleId: updated?.modules?.find((m) => m.status === 'active')?.moduleId,
-        },
-      });
-    } catch (err) {
-      const msg =
-        err.response?.data?.message || 'Failed to complete module. Please try again.';
-      addToast(msg, 'error');
-    } finally {
-      setCompletingFallback(false);
-    }
-  };
-
-  // 4. Handle Option Selection
-  const handleSelectOption = (optIdx) => {
-    const currentQ = questions[currentIndex];
-    if (!currentQ) return;
-
+  // Answer selection handler
+  const handleSelectOption = useCallback((questionId, optionIndex) => {
     setAnswers((prev) => ({
       ...prev,
-      [currentQ.id]: optIdx,
+      [questionId]: optionIndex,
     }));
-  };
+  }, []);
 
-  const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Jump to specific question
+  const jumpToQuestion = (index) => {
+    setCurrentIndex(index);
+    if (questionCardRef.current) {
+      questionCardRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
     }
   };
 
-  const handleBack = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex((prev) => prev - 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
+  // Calculations for progress & validation (memoized)
+  const totalQuestions = questions.length;
+  const answeredCount = useMemo(
+    () => questions.filter((q) => answers[q.id] !== undefined).length,
+    [questions, answers],
+  );
+  const isAllAnswered = totalQuestions > 0 && answeredCount === totalQuestions;
+  const isLastQuestion = totalQuestions > 0 && currentIndex === totalQuestions - 1;
 
-  // 5. Submit Checkpoint Answers
-  const handleSubmitCheckpoint = async () => {
-    if (submitting) return;
+  const unansweredIndices = useMemo(
+    () =>
+      questions
+        .map((q, idx) => (answers[q.id] === undefined ? idx : null))
+        .filter((idx) => idx !== null),
+    [questions, answers],
+  );
 
-    // Validate that all questions have been answered
-    const formattedAnswers = questions.map((q) => ({
+  const currentQuestion = questions[currentIndex];
+
+  // Submit assessment handler (memoized)
+  const handleConfirmSubmit = useCallback(async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setShowConfirmModal(false);
+
+    const submissionAnswers = questions.map((q) => ({
       questionId: q.id,
       selectedIndex: answers[q.id] !== undefined ? answers[q.id] : 0,
     }));
 
-    setSubmitting(true);
-    setError(null);
-
     try {
-      const response = await api.post(`/roadmap/module/${moduleId}/checkpoint`, {
-        answers: formattedAnswers,
-      });
-
-      const data = response.data; // { score, changes, roadmap }
-      if (data?.roadmap) {
-        setRoadmap(data.roadmap);
-      }
-      setResult(data);
+      const submitRes = await api.submitCheckpoint(moduleId, submissionAnswers);
+      setResult(submitRes);
+      success('Roadmap updated.');
     } catch (err) {
-      const msg =
-        err.response?.data?.message ||
-        'Failed to submit checkpoint assessment. Please retry.';
-      setError(msg);
+      toastError(err.message || 'Failed to submit checkpoint.');
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
-  };
+  }, [isSubmitting, questions, answers, moduleId, success, toastError]);
 
-  // -------------------------------------------------------------
-  // Render: Loading State
-  // -------------------------------------------------------------
-  if (loading) {
-    return (
-      <div className="page-center-container">
-        <Spinner size="lg" label="Loading checkpoint assessment..." />
-      </div>
-    );
-  }
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (showConfirmModal || result) return;
 
-  // -------------------------------------------------------------
-  // Render: Fallback State (404 - No Checkpoint Available)
-  // -------------------------------------------------------------
-  if (noCheckpointFallback) {
-    return (
-      <div className="page-container checkpoint-fallback-container">
-        <div className="module-breadcrumb-bar">
-          <Link to={`/module/${moduleId}`} className="breadcrumb-back-link">
-            &larr; Back to Module Details
-          </Link>
-          <span className="breadcrumb-divider">/</span>
-          <span className="breadcrumb-current">Checkpoint</span>
-        </div>
-
-        <Card className="checkpoint-fallback-card">
-          <div className="fallback-icon-bubble" aria-hidden="true">
-            📋
-          </div>
-          <h1 className="fallback-title">Standard Milestone Completion</h1>
-          <p className="fallback-subtitle">
-            This module does not require a conceptual checkpoint quiz. You can mark
-            it as complete directly to unlock your next curriculum milestone.
-          </p>
-
-          <div className="fallback-actions-row">
-            <Button
-              variant="primary"
-              loading={completingFallback}
-              onClick={handlePlainComplete}
-              className="btn-hero"
-            >
-              Mark as Complete &amp; Unlock Next &rarr;
-            </Button>
-
-            <Link to={`/module/${moduleId}`} className="btn btn-secondary">
-              Return to Module Learning Tasks
-            </Link>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------------
-  // Render: Error State
-  // -------------------------------------------------------------
-  if (error && !result) {
-    return (
-      <div className="page-container" style={{ maxWidth: '640px', marginTop: '40px' }}>
-        <ErrorMessage message={error} onRetry={loadCheckpointQuestions} />
-        <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
-          <Link to={`/module/${moduleId}`} className="btn btn-secondary">
-            &larr; Back to Module
-          </Link>
-          <Link to="/dashboard" className="btn btn-secondary">
-            Return to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------------
-  // Render: Result Screen (After Submission)
-  // -------------------------------------------------------------
-  if (result) {
-    const { score, changes = [], roadmap: updatedRoadmap } = result;
-    const isHighScore = score >= 80;
-    const isLowScore = score < 40;
-    const isMidScore = score >= 40 && score < 80;
-
-    // Plain-language summary text
-    let summaryHeadline = '';
-    let summaryDetail = '';
-    let scoreBadgeVariant = 'active';
-
-    if (isHighScore) {
-      summaryHeadline = 'Mastery Demonstrated! 🚀';
-      summaryDetail =
-        'Great score! We skipped one topic you already know to accelerate your progress.';
-      scoreBadgeVariant = 'complete';
-    } else if (isLowScore) {
-      summaryHeadline = 'Foundation Reinforcement Added 📚';
-      summaryDetail =
-        'We added a short review module to strengthen your grasp of core concepts before moving ahead.';
-      scoreBadgeVariant = 'warning';
-    } else {
-      summaryHeadline = 'Milestone Cleared! 🎉';
-      summaryDetail =
-        'Solid score! You demonstrated consistent understanding. Continuing along your standard curriculum path.';
-      scoreBadgeVariant = 'active';
-    }
-
-    const removedChange = changes.find((c) => c.type === 'removed');
-    const insertedChange = changes.find((c) => c.type === 'inserted');
-
-    const handleContinueToDashboard = () => {
-      // Find changed module IDs to animate on dashboard
-      const changedIds = changes.map((c) => c.moduleId).filter(Boolean);
-
-      // Determine module to highlight/scroll to
-      let highlightId = null;
-      if (insertedChange) {
-        highlightId = insertedChange.moduleId;
-      } else {
-        const nextActive = updatedRoadmap?.modules?.find((m) => m.status === 'active');
-        highlightId = nextActive?.moduleId || nextActive?._id;
+      if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'A')) {
+        return;
       }
 
-      navigate('/dashboard', {
-        state: {
-          roadmapUpdated: true,
-          replanToast: true,
-          changedModuleIds: changedIds,
-          highlightedModuleId: highlightId,
-        },
-      });
+      if (currentQuestion && /^[1-9]$/.test(e.key)) {
+        const optionNum = Number(e.key);
+        if (optionNum >= 1 && optionNum <= currentQuestion.options.length) {
+          e.preventDefault();
+          handleSelectOption(currentQuestion.id, optionNum - 1);
+        }
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (currentIndex < totalQuestions - 1) {
+          setCurrentIndex((prev) => prev + 1);
+        } else if (isAllAnswered) {
+          setShowConfirmModal(true);
+        }
+      }
     };
 
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    showConfirmModal,
+    result,
+    currentQuestion,
+    currentIndex,
+    totalQuestions,
+    isAllAnswered,
+    handleSelectOption,
+  ]);
+
+  if (!isCheckpointEnabled) {
+    return null;
+  }
+
+  // 1. Loading State
+  if (loading) {
     return (
-      <div className="page-container checkpoint-result-container">
-        <Card className="checkpoint-result-card">
-          <div className="result-header-badge">
-            <span className={`badge badge-${scoreBadgeVariant}`}>
-              {isHighScore && 'Fast Track Applied'}
-              {isLowScore && 'Curriculum Adapted'}
-              {isMidScore && 'Milestone Achieved'}
+      <main id="main-content" className="pf-checkpoint-page" aria-busy="true">
+        <div className="pf-checkpoint-header">
+          <Skeleton width="160px" height="26px" />
+          <Skeleton width="60%" height="34px" />
+          <Skeleton lines={2} />
+        </div>
+        <div className="pf-checkpoint-progress-card">
+          <Skeleton width="100%" height="16px" />
+        </div>
+        <div className="pf-checkpoint-quiz-wrapper">
+          <Skeleton width="40%" height="24px" style={{ marginBottom: '16px' }} />
+          <Skeleton lines={4} height="52px" />
+        </div>
+      </main>
+    );
+  }
+
+  // 2. Error State
+  if (error) {
+    return (
+      <main id="main-content" className="pf-checkpoint-page">
+        <ErrorState
+          title="Checkpoint Assessment Unavailable"
+          message={
+            error.message || 'Unable to load checkpoint questions. Please try again.'
+          }
+          onRetry={handleRetry}
+          retryLabel="Try Again"
+        />
+      </main>
+    );
+  }
+
+  // 3. Result Screen Presentation
+  if (result) {
+    const isReplanned = Boolean(result.replanned);
+    let replanBadgeText = 'No changes';
+    if (result.score >= 80) {
+      replanBadgeText = 'Roadmap updated: 1 module skipped / fast-tracked';
+    } else if (result.score < 50) {
+      replanBadgeText = 'Roadmap updated: 1 reinforcement module added';
+    }
+
+    return (
+      <main id="main-content" className="pf-checkpoint-page">
+        <section className="pf-checkpoint-result-card" aria-labelledby="result-heading">
+          <div className="pf-checkpoint-result-score-circle">
+            <span className="pf-checkpoint-result-score-number">{result.score}%</span>
+            <span className="pf-checkpoint-result-score-label">Score</span>
+          </div>
+
+          <div className="pf-checkpoint-result-info">
+            <h1 id="result-heading" className="pf-checkpoint-result-title">
+              Checkpoint Complete
+            </h1>
+
+            <span
+              className={`pf-checkpoint-replan-badge ${isReplanned ? 'pf-checkpoint-replan-badge--replanned' : 'pf-checkpoint-replan-badge--standard'}`}
+            >
+              {isReplanned ? '⚡' : '✓'} {replanBadgeText}
             </span>
           </div>
 
-          <h1 className="result-headline">{summaryHeadline}</h1>
-
-          {/* Big Score Dial / Badge */}
-          <div className="checkpoint-score-display">
-            <div
-              className={`score-circle ${
-                isHighScore ? 'score-high' : isLowScore ? 'score-low' : 'score-mid'
-              }`}
-            >
-              <span className="score-number">{score}%</span>
-              <span className="score-subtext">Checkpoint Score</span>
-            </div>
+          <div className="pf-checkpoint-change-summary">
+            <strong>Curriculum Evaluation:</strong>
+            <p style={{ margin: '6px 0 0' }}>
+              {result.changeSummary ||
+                'Your checkpoint assessment responses have been evaluated against employer benchmarks.'}
+            </p>
           </div>
 
-          {/* Plain-Language Summary Callout */}
-          <div
-            className={`replan-summary-callout ${
-              isHighScore
-                ? 'callout-fasttrack'
-                : isLowScore
-                ? 'callout-remedial'
-                : 'callout-standard'
-            }`}
-          >
-            <p className="summary-primary-text">{summaryDetail}</p>
-          </div>
-
-          {/* Detailed Structural Changes List */}
-          <div className="replan-changes-section">
-            <h2 className="replan-changes-title">Roadmap Adjustments:</h2>
-
-            {changes.length === 0 && (
-              <div className="change-item change-item-none">
-                <span className="change-icon">✓</span>
-                <span>
-                  No modules skipped or added. All milestone objectives satisfied.
-                </span>
-              </div>
-            )}
-
-            {removedChange && (
-              <div className="change-item change-item-removed">
-                <span className="change-pill pill-removed">Skipped</span>
-                <div className="change-info">
-                  <strong className="change-module-title">{removedChange.title}</strong>
-                  <span className="change-note">
-                    Accelerated past this topic based on your verified proficiency.
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {insertedChange && (
-              <div className="change-item change-item-inserted">
-                <span className="change-pill pill-inserted">Review Module Added</span>
-                <div className="change-info">
-                  <strong className="change-module-title">{insertedChange.title}</strong>
-                  <span className="change-note">
-                    Inserted 3-6 hour focused practice module to reinforce key concepts.
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Action to Dashboard */}
-          <div className="result-actions-footer">
+          <div className="pf-checkpoint-result-actions">
             <Button
+              type="button"
               variant="primary"
-              onClick={handleContinueToDashboard}
-              className="btn-hero"
+              size="lg"
+              onClick={() =>
+                navigate('/dashboard', {
+                  state: { updatedModuleId: moduleId },
+                })
+              }
             >
-              View Updated Dashboard &rarr;
+              Return to Curriculum Dashboard
             </Button>
           </div>
-        </Card>
-      </div>
+        </section>
+      </main>
     );
   }
 
-  // -------------------------------------------------------------
-  // Render: Active Quiz Questions Flow
-  // -------------------------------------------------------------
-  if (questions.length === 0) {
+  // 4. Empty State Guard
+  if (totalQuestions === 0) {
     return (
-      <div className="page-center-container">
-        <p>No questions available for this checkpoint.</p>
-        <Link to={`/module/${moduleId}`} className="btn btn-secondary">
-          Return to Module
-        </Link>
-      </div>
+      <main id="main-content" className="pf-checkpoint-page">
+        <EmptyState
+          title="No Checkpoint Questions"
+          message="There are no checkpoint assessment questions configured for this module."
+          action={
+            <Button variant="primary" onClick={() => navigate('/dashboard')}>
+              Back to Dashboard
+            </Button>
+          }
+        />
+      </main>
     );
   }
 
-  const currentQuestion = questions[currentIndex];
-  const selectedIndex = answers[currentQuestion.id];
-  const isAnswered = selectedIndex !== undefined;
-  const isLastQuestion = currentIndex === questions.length - 1;
-  const totalAnswered = Object.keys(answers).length;
-  const progressPercent = Math.round(((currentIndex + 1) / questions.length) * 100);
-
+  // 5. Quiz Assessment Presentation
   return (
-    <div className="page-container checkpoint-quiz-container">
-      {/* Breadcrumb Navigation */}
-      <div className="module-breadcrumb-bar">
-        <Link to={`/module/${moduleId}`} className="breadcrumb-back-link">
-          &larr; Exit Checkpoint
-        </Link>
-        <span className="breadcrumb-divider">/</span>
-        <span className="breadcrumb-current">Milestone Checkpoint</span>
-      </div>
-
-      {/* Checkpoint Header & Progress Bar */}
-      <div className="checkpoint-quiz-header">
-        <div className="checkpoint-quiz-meta">
-          <span className="badge badge-active">Milestone Checkpoint</span>
-          <span className="checkpoint-counter">
-            Question <strong>{currentIndex + 1}</strong> of{' '}
-            <strong>{questions.length}</strong>
+    <main id="main-content" className="pf-checkpoint-page">
+      {/* Header & Meta */}
+      <header className="pf-checkpoint-header">
+        <div className="pf-checkpoint-header__badge-row">
+          <span className="pf-checkpoint-module-badge">
+            <span aria-hidden="true">🎯</span> {moduleTitle}
+          </span>
+          <span className="pf-checkpoint-hint-badge" aria-hidden="true">
+            ⌨️ 1-4 keys to pick, Enter to advance
           </span>
         </div>
+        <h1 className="pf-checkpoint-title">{checkpointTitle}</h1>
+        <p className="pf-checkpoint-description">
+          Verify your mastery of key concepts from this module. High performance may
+          fast-track advanced curriculum milestones!
+        </p>
+      </header>
 
-        <h1 className="checkpoint-module-heading">{moduleTitle}</h1>
+      {/* Progress & Navigator */}
+      <section className="pf-checkpoint-progress-card" aria-label="Checkpoint Progress">
+        <ProgressBar
+          value={answeredCount}
+          max={totalQuestions}
+          label={`Question ${currentIndex + 1} of ${totalQuestions}`}
+          showValueText={true}
+        />
 
-        <div style={{ marginTop: '12px' }}>
-          <ProgressBar
-            value={progressPercent}
-            label={`Quiz Progress (${totalAnswered} of ${questions.length} answered)`}
-            showPercentage={true}
-          />
-        </div>
-      </div>
+        <nav className="pf-checkpoint-navigator" aria-label="Question Navigator">
+          <span className="pf-checkpoint-navigator__label">
+            Questions ({answeredCount}/{totalQuestions} answered)
+          </span>
+          <div className="pf-checkpoint-navigator__dots" role="list">
+            {questions.map((q, idx) => {
+              const isAnswered = answers[q.id] !== undefined;
+              const isActive = idx === currentIndex;
+              const dotClass = [
+                'pf-checkpoint-nav-dot',
+                isActive ? 'pf-checkpoint-nav-dot--active' : '',
+                isAnswered ? 'pf-checkpoint-nav-dot--answered' : '',
+              ]
+                .filter(Boolean)
+                .join(' ');
 
-      {/* Submitting Loading Overlay */}
-      {submitting ? (
-        <Card className="checkpoint-submitting-card">
-          <Spinner size="lg" label="Scoring checkpoint and evaluating curriculum..." />
-          <h2 className="submitting-title">Analyzing Your Milestone Competency</h2>
-          <p className="submitting-desc">
-            PathForge is evaluating your responses and adaptively adjusting your upcoming
-            milestones...
-          </p>
-        </Card>
-      ) : (
-        <>
-          {/* Reusable QuizQuestion Component */}
-          <QuizQuestion
-            question={currentQuestion}
-            selectedIndex={selectedIndex}
-            onSelectOption={handleSelectOption}
-            disabled={submitting}
-          />
-
-          {/* Navigation Controls: Back, Next, Submit */}
-          <div className="checkpoint-nav-bar">
-            <Button
-              variant="secondary"
-              onClick={handleBack}
-              disabled={currentIndex === 0 || submitting}
-            >
-              &larr; Back
-            </Button>
-
-            <div className="checkpoint-nav-right">
-              {isLastQuestion ? (
-                <Button
-                  variant="primary"
-                  onClick={handleSubmitCheckpoint}
-                  disabled={!isAnswered || submitting}
-                  loading={submitting}
-                  className="btn-submit-checkpoint"
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  className={dotClass}
+                  onClick={() => jumpToQuestion(idx)}
+                  aria-label={`Question ${idx + 1}: ${isAnswered ? 'Answered' : 'Unanswered'}${isActive ? ', Current Question' : ''}`}
+                  aria-current={isActive ? 'step' : undefined}
                 >
-                  Submit Checkpoint &rarr;
-                </Button>
-              ) : (
-                <Button
-                  variant="primary"
-                  onClick={handleNext}
-                  disabled={!isAnswered || submitting}
-                >
-                  Next Question &rarr;
-                </Button>
-              )}
-            </div>
+                  {idx + 1}
+                </button>
+              );
+            })}
           </div>
-        </>
-      )}
-    </div>
-  );
-};
+        </nav>
+      </section>
 
-export default CheckpointPage;
+      {/* Active Question */}
+      <section
+        ref={questionCardRef}
+        className="pf-checkpoint-quiz-wrapper"
+        aria-live="polite"
+      >
+        {currentQuestion && (
+          <QuizQuestion
+            questionId={currentQuestion.id}
+            questionNumber={currentIndex + 1}
+            questionText={currentQuestion.text || currentQuestion.question}
+            options={currentQuestion.options}
+            selectedIndex={answers[currentQuestion.id] ?? null}
+            onSelectOption={(idx) => handleSelectOption(currentQuestion.id, idx)}
+          />
+        )}
+      </section>
+
+      {/* Unanswered Banner on Last Question */}
+      {isLastQuestion && unansweredIndices.length > 0 && (
+        <aside
+          className="pf-checkpoint-unanswered-banner"
+          role="alert"
+          aria-live="polite"
+        >
+          <div className="pf-checkpoint-unanswered-banner__header">
+            <span aria-hidden="true">⚠️</span>
+            <span>
+              {unansweredIndices.length} Question
+              {unansweredIndices.length > 1 ? 's' : ''} Remaining
+            </span>
+          </div>
+          <p style={{ margin: '4px 0 0', fontSize: 'var(--font-size-sm)' }}>
+            Please answer all questions before submitting your checkpoint:
+          </p>
+          <div
+            style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}
+          >
+            {unansweredIndices.map((uIdx) => (
+              <button
+                key={uIdx}
+                type="button"
+                className="pf-checkpoint-jump-chip"
+                onClick={() => jumpToQuestion(uIdx)}
+                aria-label={`Jump to unanswered question ${uIdx + 1}`}
+              >
+                Go to Question {uIdx + 1}
+              </button>
+            ))}
+          </div>
+        </aside>
+      )}
+
+      {/* Actions Footer Bar */}
+      <footer className="pf-checkpoint-actions">
+        <div className="pf-checkpoint-actions__left">
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            disabled={currentIndex === 0}
+            onClick={() => jumpToQuestion(currentIndex - 1)}
+            aria-label="Previous question"
+          >
+            ← Previous
+          </Button>
+        </div>
+
+        <div className="pf-checkpoint-actions__right">
+          {!isLastQuestion ? (
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              onClick={() => jumpToQuestion(currentIndex + 1)}
+              aria-label="Next question"
+            >
+              Next →
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              disabled={!isAllAnswered || isSubmitting}
+              loading={isSubmitting}
+              onClick={() => setShowConfirmModal(true)}
+              aria-label="Submit checkpoint assessment"
+            >
+              Submit Checkpoint
+            </Button>
+          )}
+        </div>
+      </footer>
+
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        title="Submit Checkpoint Assessment?"
+        size="md"
+        role="dialog"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              disabled={isSubmitting}
+              onClick={() => setShowConfirmModal(false)}
+            >
+              Review Answers
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              disabled={isSubmitting}
+              loading={isSubmitting}
+              onClick={handleConfirmSubmit}
+            >
+              Confirm & Submit
+            </Button>
+          </>
+        }
+      >
+        <p>
+          You are about to submit your checkpoint responses for{' '}
+          <strong>{moduleTitle}</strong>.
+        </p>
+        <p>
+          Your answers will be analyzed to calibrate your curriculum pace and dynamically
+          adjust upcoming modules.
+        </p>
+      </Modal>
+    </main>
+  );
+}

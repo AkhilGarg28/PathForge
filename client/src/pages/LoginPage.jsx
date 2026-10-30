@@ -1,203 +1,252 @@
-import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import ErrorMessage from '../components/ErrorMessage';
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../hooks/useToast';
-import { validateEmail, validatePassword } from '../utils/validation';
+import { useState, useRef } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth.js';
+import { useToast } from '../hooks/useToast.js';
+import { usePageTitle } from '../hooks/usePageTitle.js';
+import { Card, Input, Button } from '../components/index.js';
+import { validateEmail } from '../utils/validation.js';
 
-const LoginPage = () => {
+export default function LoginPage() {
+  const { login } = useAuth();
+  const toast = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
+  usePageTitle('Log in');
+
+  // Controlled form state
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
 
+  // Touched state for onBlur validation
   const [touched, setTouched] = useState({
     email: false,
     password: false,
   });
 
-  const [fieldErrors, setFieldErrors] = useState({
-    email: '',
-    password: '',
-  });
+  // Client-side validation errors
+  const [errors, setErrors] = useState({});
 
-  const [serverError, setServerError] = useState('');
-  const [loading, setLoading] = useState(false);
+  // Submitting state for double-submit prevention
+  const [submitting, setSubmitting] = useState(false);
 
-  const { login } = useAuth();
-  const { addToast } = useToast();
-  const navigate = useNavigate();
-  const location = useLocation();
+  // Server error message
+  const [serverError, setServerError] = useState(null);
+
+  // Input element refs for automated focus management
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+
+  const flashMessage = location.state?.message;
+  const redirectTarget = location.state?.from?.pathname;
+
+  // Validation runner
+  const validateField = (field, value) => {
+    switch (field) {
+      case 'email':
+        return validateEmail(value);
+      case 'password':
+        return !value ? 'Password is required.' : null;
+      default:
+        return null;
+    }
+  };
 
   const handleBlur = (field) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
-    validateField(field, formData[field]);
-  };
-
-  const validateField = (field, value) => {
-    let error = '';
-    if (field === 'email') {
-      error = validateEmail(value);
-    } else if (field === 'password') {
-      error = validatePassword(value, false);
-    }
-
-    setFieldErrors((prev) => ({ ...prev, [field]: error }));
-    return error;
+    const error = validateField(field, formData[field]);
+    setErrors((prev) => ({ ...prev, [field]: error }));
   };
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    setServerError('');
-
+    setServerError(null);
     if (touched[field]) {
-      validateField(field, value);
+      const error = validateField(field, value);
+      setErrors((prev) => ({ ...prev, [field]: error }));
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setServerError('');
+    if (submitting) return; // Double-submit prevention
 
-    setTouched({
-      email: true,
-      password: true,
-    });
+    // Run complete validation
+    const emailError = validateField('email', formData.email);
+    const passwordError = validateField('password', formData.password);
 
-    const emailErr = validateField('email', formData.email);
-    const passErr = validateField('password', formData.password);
+    const validationErrors = {};
+    if (emailError) validationErrors.email = emailError;
+    if (passwordError) validationErrors.password = passwordError;
 
-    if (emailErr || passErr) {
+    setTouched({ email: true, password: true });
+    setErrors(validationErrors);
+    setServerError(null);
+
+    // If invalid, focus the first erroneous input
+    if (Object.keys(validationErrors).length > 0) {
+      if (validationErrors.email) {
+        emailRef.current?.focus();
+      } else if (validationErrors.password) {
+        passwordRef.current?.focus();
+      }
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     try {
-      const user = await login({
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-      });
+      const res = await login(formData.email.trim(), formData.password);
+      const user = res?.user;
+      toast.success('Welcome back!');
+      const target = redirectTarget || (user?.roleId ? '/dashboard' : '/role-selection');
+      navigate(target, { replace: true });
+    } catch (err) {
+      let message = 'Unable to log in. Please try again.';
 
-      addToast('Logged in successfully!', 'success');
-
-      // Determine destination: prioritize previously attempted route if targetRole exists
-      const fromPath = location.state?.from?.pathname;
-      let destination;
-      if (!user.targetRole) {
-        destination = '/roles';
-      } else {
-        destination = fromPath && fromPath !== '/login' && fromPath !== '/signup' ? fromPath : '/dashboard';
+      if (err?.status === 401 || err?.code === 'INVALID_CREDENTIALS') {
+        message = 'Invalid email or password.';
+      } else if (err?.status === 429 || err?.code === 'RATE_LIMIT_EXCEEDED') {
+        message = 'Too many attempts. Please try again later.';
+      } else if (err?.status === 0 || err?.code === 'NETWORK_ERROR') {
+        message = 'Unable to connect to PathForge server. Please check your network.';
+      } else if (err?.message) {
+        message = err.message;
       }
 
-      navigate(destination, { replace: true });
-    } catch (err) {
-      const msg =
-        err.response?.data?.message ||
-        (err.response?.status === 401
-          ? 'Invalid credentials'
-          : 'Failed to log in. Please check your network connection.');
-      setServerError(msg);
+      setServerError(message);
+      toast.error(message);
+      passwordRef.current?.focus();
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="page-center-container">
-      <Card
-        title="Log In to PathForge"
-        subtitle="Enter your credentials to continue your journey"
-        className="auth-card"
-      >
-        {serverError && (
-          <ErrorMessage message={serverError} className="auth-error-box" />
+    <main
+      id="main-content"
+      className="pf-auth-page"
+      style={{
+        maxWidth: 440,
+        margin: 'var(--space-4) auto',
+        padding: '0 var(--space-2)',
+      }}
+    >
+      <Card>
+        <h1 style={{ fontSize: 'var(--font-size-2xl)', marginBottom: 'var(--space-1)' }}>
+          Log in to PathForge
+        </h1>
+        <p
+          style={{
+            color: 'var(--color-text-secondary)',
+            fontSize: 'var(--font-size-sm)',
+            marginBottom: 'var(--space-3)',
+          }}
+        >
+          Continue your personalized journey to employability.
+        </p>
+
+        {flashMessage && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              padding: 'var(--space-1) var(--space-2)',
+              backgroundColor: 'var(--color-warning-bg)',
+              border: '1px solid var(--color-warning-border)',
+              color: 'var(--color-warning-text)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 'var(--space-3)',
+              fontSize: 'var(--font-size-sm)',
+            }}
+          >
+            {flashMessage}
+          </div>
         )}
 
-        <form onSubmit={handleSubmit} noValidate className="auth-form">
-          {/* Email Field */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="login-email">
-              Email Address <span className="required-star">*</span>
-            </label>
-            <input
-              id="login-email"
-              type="email"
-              name="email"
-              autoComplete="email"
-              className={`form-input ${
-                touched.email && fieldErrors.email ? 'form-input-error' : ''
-              }`}
-              placeholder="user@example.com"
-              value={formData.email}
-              onChange={(e) => handleChange('email', e.target.value)}
-              onBlur={() => handleBlur('email')}
-              aria-invalid={touched.email && Boolean(fieldErrors.email)}
-              aria-describedby={
-                touched.email && fieldErrors.email ? 'login-email-error' : undefined
-              }
-              disabled={loading}
-              required
-            />
-            {touched.email && fieldErrors.email && (
-              <p id="login-email-error" className="field-error-text" role="alert">
-                {fieldErrors.email}
-              </p>
-            )}
-          </div>
-
-          {/* Password Field */}
-          <div className="form-group">
-            <label className="form-label" htmlFor="login-password">
-              Password <span className="required-star">*</span>
-            </label>
-            <input
-              id="login-password"
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              className={`form-input ${
-                touched.password && fieldErrors.password ? 'form-input-error' : ''
-              }`}
-              placeholder="••••••••"
-              value={formData.password}
-              onChange={(e) => handleChange('password', e.target.value)}
-              onBlur={() => handleBlur('password')}
-              aria-invalid={touched.password && Boolean(fieldErrors.password)}
-              aria-describedby={
-                touched.password && fieldErrors.password ? 'login-password-error' : undefined
-              }
-              disabled={loading}
-              required
-            />
-            {touched.password && fieldErrors.password && (
-              <p id="login-password-error" className="field-error-text" role="alert">
-                {fieldErrors.password}
-              </p>
-            )}
-          </div>
-
-          <Button
-            variant="primary"
-            type="submit"
-            loading={loading}
-            disabled={loading}
-            style={{ width: '100%', marginTop: '12px' }}
+        {serverError && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            style={{
+              padding: 'var(--space-1) var(--space-2)',
+              backgroundColor: 'var(--color-error-bg)',
+              border: '1px solid var(--color-error-border)',
+              color: 'var(--color-error-text)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 'var(--space-3)',
+              fontSize: 'var(--font-size-sm)',
+            }}
           >
-            {loading ? 'Logging In...' : 'Log In'}
-          </Button>
+            {serverError}
+          </div>
+        )}
+
+        {/* Aria-live announcement for client validation errors */}
+        <div className="sr-only" role="status" aria-live="assertive">
+          {Object.values(errors).filter(Boolean).join('. ')}
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          noValidate
+          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+        >
+          <Input
+            ref={emailRef}
+            label="Email"
+            type="email"
+            name="email"
+            autoComplete="email"
+            required
+            placeholder="name@company.com"
+            value={formData.email}
+            disabled={submitting}
+            error={touched.email ? errors.email : null}
+            onChange={(e) => handleChange('email', e.target.value)}
+            onBlur={() => handleBlur('email')}
+          />
+
+          <Input
+            ref={passwordRef}
+            label="Password"
+            type="password"
+            name="password"
+            autoComplete="current-password"
+            required
+            placeholder="Enter your password"
+            value={formData.password}
+            disabled={submitting}
+            error={touched.password ? errors.password : null}
+            onChange={(e) => handleChange('password', e.target.value)}
+            onBlur={() => handleBlur('password')}
+          />
+
+          <div style={{ marginTop: 'var(--space-1)' }}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              loading={submitting}
+              disabled={submitting}
+              style={{ width: '100%' }}
+            >
+              Log in
+            </Button>
+          </div>
         </form>
 
-        <div className="auth-footer">
-          Don't have an account?{' '}
-          <Link to="/signup" className="auth-link">
-            Sign up
-          </Link>
-        </div>
+        <p
+          style={{
+            marginTop: 'var(--space-3)',
+            fontSize: 'var(--font-size-sm)',
+            color: 'var(--color-text-muted)',
+            textAlign: 'center',
+          }}
+        >
+          Don&apos;t have an account? <Link to="/signup">Sign up</Link>
+        </p>
       </Card>
-    </div>
+    </main>
   );
-};
-
-export default LoginPage;
+}

@@ -1,84 +1,91 @@
-import React from 'react';
-import Card from './Card';
+import { useId, memo } from 'react';
+import './QuizQuestion.css';
 
 /**
- * QuizQuestion Component
- *
- * Displays a single quiz question with dimension tag, prompt, and interactive options list.
- * Reused across both the Diagnostic Quiz and Module Checkpoint Quizzes.
- *
- * Props:
- * - question: { id, question, options, dimension, roleName }
- * - selectedIndex: number | undefined
- * - onSelectOption: (index: number) => void
- * - disabled?: boolean
- * - className?: string
+ * Accessible question card rendering an HTML <fieldset> and 4 radio options.
+ * Fully supports arrow-key navigation and optional review result states.
+ * Wrapped in React.memo to prevent unnecessary re-renders during assessment progression.
  */
-const QuizQuestion = ({
-  question,
-  selectedIndex,
+function QuizQuestion({
+  questionId,
+  questionNumber,
+  questionText,
+  subtitle,
+  options = [],
+  selectedIndex = null,
   onSelectOption,
+  showResult = false,
+  correctIndex = null,
   disabled = false,
   className = '',
-}) => {
-  if (!question) return null;
+}) {
+  const autoId = useId();
+  const name = `quiz-q-${questionId || autoId}`;
 
   return (
-    <Card className={`diagnostic-question-card quiz-question-card ${className}`}>
-      {question.dimension && (
-        <div className="question-dimension-tag">
-          <span className="dimension-label-pill">Dimension: {question.dimension}</span>
-        </div>
-      )}
+    <fieldset className={`pf-quiz-question ${className}`.trim()}>
+      <legend className="pf-quiz-question__legend">
+        {questionNumber ? `Q${questionNumber}. ` : ''}
+        {questionText}
+        {subtitle && <span className="pf-quiz-question__subtitle">{subtitle}</span>}
+      </legend>
 
-      <h2 className="question-prompt-text">{question.question}</h2>
+      <div className="pf-quiz-question__options" role="radiogroup">
+        {options.map((option, index) => {
+          const isSelected = selectedIndex === index;
+          const optionId = `${name}-opt-${index}`;
 
-      {/* Interactive Options List */}
-      <div
-        className="options-container"
-        role="radiogroup"
-        aria-label={question.question}
-      >
-        {question.options.map((optionText, optIdx) => {
-          const isOptionSelected = selectedIndex === optIdx;
+          // Result review indicators
+          let reviewClass = '';
+          let badgeText = null;
+
+          if (showResult) {
+            if (correctIndex !== null && index === correctIndex) {
+              reviewClass = 'pf-quiz-option--result-correct';
+              badgeText = 'Correct Answer';
+            } else if (isSelected && correctIndex !== null && index !== correctIndex) {
+              reviewClass = 'pf-quiz-option--result-incorrect';
+              badgeText = 'Your Choice';
+            } else if (isSelected) {
+              reviewClass = 'pf-quiz-option--selected';
+              badgeText = 'Selected';
+            }
+          } else if (isSelected) {
+            reviewClass = 'pf-quiz-option--selected';
+          }
 
           return (
-            <div
-              key={optIdx}
-              className={`diagnostic-option-card ${isOptionSelected ? 'selected' : ''} ${
-                disabled ? 'disabled' : ''
-              }`}
-              onClick={() => {
-                if (!disabled && onSelectOption) {
-                  onSelectOption(optIdx);
-                }
-              }}
-              onKeyDown={(e) => {
-                if (!disabled && onSelectOption && (e.key === 'Enter' || e.key === ' ')) {
-                  e.preventDefault();
-                  onSelectOption(optIdx);
-                }
-              }}
-              tabIndex={disabled ? -1 : 0}
-              role="radio"
-              aria-checked={isOptionSelected}
-              aria-disabled={disabled}
+            <label
+              key={index}
+              htmlFor={optionId}
+              className={`pf-quiz-option ${reviewClass} ${disabled || showResult ? 'pf-quiz-option--disabled' : ''}`.trim()}
             >
-              <div className="option-indicator-bubble">
-                {String.fromCharCode(65 + optIdx)}
-              </div>
-              <div className="option-text-content">{optionText}</div>
-              {isOptionSelected && (
-                <div className="option-selected-check" aria-hidden="true">
-                  ✓
-                </div>
+              <input
+                id={optionId}
+                type="radio"
+                name={name}
+                value={index}
+                checked={isSelected}
+                disabled={disabled || showResult}
+                onChange={() => onSelectOption?.(index)}
+                className="pf-quiz-option__input"
+              />
+
+              <span className="pf-quiz-option__text">
+                {typeof option === 'string' ? option : option?.text || ''}
+              </span>
+
+              {badgeText && (
+                <span className="pf-quiz-option__badge" aria-hidden="true">
+                  {badgeText}
+                </span>
               )}
-            </div>
+            </label>
           );
         })}
       </div>
-    </Card>
+    </fieldset>
   );
-};
+}
 
-export default QuizQuestion;
+export default memo(QuizQuestion);

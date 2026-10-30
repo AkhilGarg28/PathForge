@@ -1,0 +1,125 @@
+.pf-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  position: relative;
+  user-select: none;
+}
+
+.pf-button:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Sizes */
+.pf-button--sm {
+  font-size: var(--font-size-sm);
+  padding: var(--space-0-5) var(--space-1);
+}
+
+.pf-button--md {
+  font-size: var(--font-size-base);
+  padding: var(--space-1) var(--space-2);
+}
+
+.pf-button--lg {
+  font-size: var(--font-size-lg);
+  padding: var(--space-2) var(--space-3);
+}
+
+/* Variant: Primary */
+.pf-button--primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+  border-color: var(--color-primary);
+}
+
+.pf-button--primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.pf-button--primary:active:not(:disabled) {
+  background-color: var(--color-primary-active);
+  border-color: var(--color-primary-active);
+}
+
+/* Variant: Secondary */
+.pf-button--secondary {
+  background-color: var(--color-surface-card);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+
+.pf-button--secondary:hover:not(:disabled) {
+  background-color: var(--color-surface-subtle);
+  border-color: var(--color-neutral-400);
+}
+
+.pf-button--secondary:active:not(:disabled) {
+  background-color: var(--color-neutral-200);
+}
+
+/* Variant: Ghost */
+.pf-button--ghost {
+  background-color: transparent;
+  color: var(--color-primary);
+  border-color: transparent;
+}
+
+.pf-button--ghost:hover:not(:disabled) {
+  background-color: var(--color-primary-subtle);
+}
+
+.pf-button--ghost:active:not(:disabled) {
+  background-color: var(--color-primary-100);
+}
+
+/* Variant: Danger */
+.pf-button--danger {
+  background-color: var(--color-error-fill);
+  color: var(--color-white);
+  border-color: var(--color-error-fill);
+}
+
+.pf-button--danger:hover:not(:disabled) {
+  background-color: var(--color-error-text);
+  border-color: var(--color-error-text);
+}
+
+/* Disabled & Loading States */
+.pf-button:disabled,
+.pf-button--loading {
+  opacity: 0.65;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Loading spinner */
+.pf-button__spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-full);
+  animation: pf-spin 0.75s linear infinite;
+}
+
+@keyframes pf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

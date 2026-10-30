@@ -1,429 +1,371 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Spinner from '../components/Spinner';
-import ErrorMessage from '../components/ErrorMessage';
-import { useRoadmap } from '../context/RoadmapContext';
-import { useToast } from '../hooks/useToast';
-import api from '../services/api';
+import * as api from '../services/api.js';
+import { useToast } from '../hooks/useToast.js';
+import { usePageTitle } from '../hooks/usePageTitle.js';
+import Button from '../components/Button.jsx';
+import Skeleton from '../components/Skeleton.jsx';
+import ErrorState from '../components/ErrorState.jsx';
+import StatusCircle from '../components/StatusCircle.jsx';
+import './ModuleDetailPage.css';
 
-const ModuleDetailPage = () => {
+function getResourceIcon(type) {
+  const normalized = (type || '').toLowerCase();
+  if (normalized.includes('video')) return '🎬';
+  if (normalized.includes('doc')) return '📚';
+  if (normalized.includes('article') || normalized.includes('post')) return '📄';
+  return '🔗';
+}
+
+export default function ModuleDetailPage() {
   const { moduleId } = useParams();
   const navigate = useNavigate();
-  const { roadmap, setRoadmap, fetchRoadmap } = useRoadmap();
-  const { addToast } = useToast();
+  const { success, error: toastError, info } = useToast();
 
-  const [loading, setLoading] = useState(!roadmap);
-  const [submitting, setSubmitting] = useState(false);
+  const [roadmap, setRoadmap] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isCompleting, setIsCompleting] = useState(false);
 
-  // Sub-task checklist kept in local component state only
-  const [checkedTasks, setCheckedTasks] = useState({});
+  const enableCheckpoint = import.meta.env.VITE_ENABLE_CHECKPOINT === 'true';
 
-  // 1. Ensure roadmap is loaded
-  const loadModuleRoadmap = useCallback(async () => {
-    if (roadmap) {
-      setLoading(false);
-      return;
-    }
+  const modules = roadmap?.modules || [];
+  const currentIndex = modules.findIndex((m) => m.moduleId === moduleId);
+  const currentModule = modules[currentIndex];
 
-    setLoading(true);
-    setError(null);
-    try {
-      const activeRoadmap = await fetchRoadmap();
-      if (!activeRoadmap) {
-        addToast('No active roadmap found. Please start the diagnostic first.', 'info');
-        navigate('/dashboard', { replace: true });
-        return;
-      }
-    } catch (err) {
-      setError('Failed to load roadmap.');
-    } finally {
-      setLoading(false);
-    }
-  }, [roadmap, fetchRoadmap, addToast, navigate]);
+  usePageTitle(currentModule ? `${currentModule.title} - Module` : 'Module Overview');
 
-  useEffect(() => {
-    loadModuleRoadmap();
-  }, [loadModuleRoadmap]);
+  // Fetch roadmap and inspect target module
+  const loadModuleData = useCallback(() => {
+    let isCancelled = false;
 
-  // 2. Identify the target module
-  const { currentModule, moduleIndex, totalModules } = useMemo(() => {
-    if (!roadmap?.modules) return { currentModule: null, moduleIndex: -1, totalModules: 0 };
-    const modules = roadmap.modules;
-    const index = modules.findIndex(
-      (m) =>
-        m.moduleId === moduleId ||
-        m._id?.toString() === moduleId ||
-        m.id?.toString() === moduleId
-    );
-    return {
-      currentModule: index !== -1 ? modules[index] : null,
-      moduleIndex: index,
-      totalModules: modules.length,
+    api
+      .getRoadmap()
+      .then((data) => {
+        if (isCancelled) return;
+
+        const targetRoadmap = data.roadmap;
+        const targetModule = targetRoadmap?.modules?.find((m) => m.moduleId === moduleId);
+
+        if (!targetModule) {
+          info(`Module "${moduleId}" was not found in your active roadmap.`);
+          navigate('/dashboard', { replace: true });
+          return;
+        }
+
+        if (targetModule.status === 'locked') {
+          info('This module is locked. Complete the active module to unlock it.');
+          navigate('/dashboard', { replace: true });
+          return;
+        }
+
+        setRoadmap(targetRoadmap);
+        setError(null);
+      })
+      .catch((err) => {
+        if (isCancelled) return;
+
+        if (err.code === 'NO_ROADMAP' || err.status === 404) {
+          info('No active roadmap found. Please select a role first.');
+          navigate('/role-selection', { replace: true });
+          return;
+        }
+
+        setError(err);
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
     };
-  }, [roadmap, moduleId]);
+  }, [moduleId, info, navigate]);
 
-  // 3. Guard against unknown id or locked module
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadModuleData();
+  }, [loadModuleData]);
+
   useEffect(() => {
-    if (loading) return;
+    const cleanup = loadModuleData();
+    return cleanup;
+  }, [loadModuleData]);
 
-    if (!currentModule) {
-      addToast('Module not found in your curriculum.', 'error');
-      navigate('/dashboard', { replace: true });
-      return;
+  // Complete module handler
+  const handleMarkComplete = async () => {
+    if (isCompleting) return;
+    setIsCompleting(true);
+
+    try {
+      await api.completeModule(moduleId);
+      success('Module completed! Next module unlocked.');
+      navigate('/dashboard');
+    } catch (err) {
+      setIsCompleting(false);
+      toastError(err.message || 'Unable to complete module. Please try again.');
     }
+  };
 
-    if (currentModule.status === 'locked') {
-      addToast(
-        'This module is locked. Please complete preceding milestones first.',
-        'warning'
-      );
-      navigate('/dashboard', { replace: true });
-    }
-  }, [loading, currentModule, addToast, navigate]);
-
-  // 4. Initialize checklist state if complete or when module loads
-  useEffect(() => {
-    if (currentModule?.resources) {
-      if (currentModule.status === 'complete') {
-        const allChecked = {};
-        currentModule.resources.forEach((_, idx) => {
-          allChecked[idx] = true;
-        });
-        setCheckedTasks(allChecked);
-      }
-    }
-  }, [currentModule]);
-
-  if (loading || !currentModule) {
+  // 1. Loading State
+  if (loading) {
     return (
-      <div className="page-center-container">
-        <Spinner size="lg" label="Loading module details..." />
-      </div>
+      <main id="main-content" className="pf-module-detail-page" aria-busy="true">
+        <div className="pf-module-back-bar">
+          <Skeleton width="140px" height="24px" />
+        </div>
+
+        <div className="pf-module-card">
+          <Skeleton width="100px" height="20px" />
+          <Skeleton width="70%" height="32px" />
+          <Skeleton lines={3} height="20px" />
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+            <Skeleton width="90px" height="26px" />
+            <Skeleton width="90px" height="26px" />
+          </div>
+        </div>
+
+        <div className="pf-module-resources-section">
+          <Skeleton width="200px" height="24px" />
+          <Skeleton width="100%" height="60px" style={{ marginBottom: '10px' }} />
+          <Skeleton width="100%" height="60px" />
+        </div>
+      </main>
     );
   }
 
-  const resources = currentModule.resources || [];
-  const checkedCount = Object.values(checkedTasks).filter(Boolean).length;
-  const allTasksChecked = resources.length === 0 || checkedCount === resources.length;
-  const isModuleActive = currentModule.status === 'active';
-  const isModuleComplete = currentModule.status === 'complete';
+  // 2. Error State
+  if (error) {
+    return (
+      <main id="main-content" className="pf-module-detail-page">
+        <ErrorState
+          title="Failed to Load Module"
+          message={
+            error.message ||
+            'We encountered an issue loading this module. Please try again.'
+          }
+          onRetry={handleRetry}
+          retryLabel="Try Again"
+        />
+      </main>
+    );
+  }
 
-  // Toggle checkbox state
-  const handleToggleTask = (index) => {
-    if (isModuleComplete) return; // Read-only once complete
-    setCheckedTasks((prev) => ({
-      ...prev,
-      [index]: !prev[index],
-    }));
-  };
+  if (!currentModule) {
+    return null;
+  }
 
-  // Complete Module Action
-  const handleMarkAsComplete = async () => {
-    if (!allTasksChecked || !isModuleActive || submitting) return;
+  const prevModule = currentIndex > 0 ? modules[currentIndex - 1] : null;
+  const nextModule = currentIndex < modules.length - 1 ? modules[currentIndex + 1] : null;
 
-    setSubmitting(true);
-    try {
-      const response = await api.patch(
-        `/roadmap/module/${currentModule.moduleId}/complete`
-      );
-
-      const updatedRoadmap = response.data?.roadmap;
-      if (updatedRoadmap) {
-        setRoadmap(updatedRoadmap);
-      }
-
-      addToast('Module completed successfully! Next milestone unlocked.', 'success');
-
-      // Find the newly unlocked next active module to highlight on dashboard
-      const nextActive = updatedRoadmap?.modules?.find(
-        (m, idx) => idx > moduleIndex && m.status === 'active'
-      ) || updatedRoadmap?.modules?.find((m) => m.status === 'active');
-
-      navigate('/dashboard', {
-        state: { highlightedModuleId: nextActive?.moduleId || nextActive?._id },
-      });
-    } catch (err) {
-      console.error('Failed to complete module:', err);
-      const msg = err.response?.data?.message || 'Failed to complete module. Please try again.';
-      addToast(msg, 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Helper for resource icon and label
-  const getResourceMeta = (type) => {
-    switch (type) {
-      case 'video':
-        return { icon: '🎥', label: 'Video Tutorial', tagClass: 'res-tag-video' };
-      case 'docs':
-        return { icon: '📚', label: 'Documentation', tagClass: 'res-tag-docs' };
-      case 'article':
-      default:
-        return { icon: '📄', label: 'Technical Article', tagClass: 'res-tag-article' };
-    }
-  };
+  const isActive = currentModule.status === 'active';
+  const isComplete = currentModule.status === 'complete';
 
   return (
-    <div className="page-container module-detail-page">
-      {/* Back to Dashboard Breadcrumb */}
-      <div className="module-breadcrumb-bar">
-        <Link to="/dashboard" className="breadcrumb-back-link">
-          &larr; Back to Dashboard
+    <main id="main-content" className="pf-module-detail-page">
+      {/* Back Link Bar */}
+      <nav className="pf-module-back-bar" aria-label="Breadcrumb">
+        <Link to="/dashboard" className="pf-module-back-link">
+          ← Back to Curriculum Dashboard
         </Link>
-        <span className="breadcrumb-divider">/</span>
-        <span className="breadcrumb-current">Milestone {moduleIndex + 1}</span>
-      </div>
+      </nav>
 
-      {error && (
-        <ErrorMessage message={error} style={{ marginBottom: '24px' }} />
-      )}
-
-      {/* Module Hero / Header Card */}
-      <Card className="module-hero-card">
-        <div className="module-hero-top">
-          <div className="module-hero-counter">
-            <span className="milestone-pill">
-              Milestone {moduleIndex + 1} of {totalModules}
+      {/* Module Overview Card */}
+      <article className="pf-module-card">
+        <div className="pf-module-header-top">
+          <div className="pf-module-title-group">
+            <span className="pf-module-step-number">
+              Module {currentIndex + 1} of {modules.length}
             </span>
-            <span className="estimated-pill">
-              ⏱️ {currentModule.estimatedHours || 10} hrs estimated
-            </span>
+            <h1 className="pf-module-title">{currentModule.title}</h1>
           </div>
 
-          <div className="module-status-container">
-            {isModuleComplete ? (
-              <span className="badge badge-complete">Complete ✓</span>
-            ) : (
-              <span className="badge badge-active">Active In Progress ▶</span>
-            )}
+          <div
+            className={`pf-module-status-badge pf-module-status-badge--${currentModule.status}`}
+          >
+            <StatusCircle status={currentModule.status} size="18px" />
+            <span>{isActive ? 'In Progress' : isComplete ? 'Completed' : 'Locked'}</span>
           </div>
         </div>
 
-        <h1 className="module-hero-title">{currentModule.title}</h1>
-        <p className="module-hero-desc">
-          {currentModule.description ||
-            'Master core concepts, explore curated technical references, and verify concept checkpoints.'}
-        </p>
+        <p className="pf-module-desc">{currentModule.description}</p>
 
-        {currentModule.resourceTags && currentModule.resourceTags.length > 0 && (
-          <div className="module-tags-row">
-            {currentModule.resourceTags.map((tag, i) => (
-              <span key={i} className="dimension-chip">
-                #{tag}
-              </span>
-            ))}
+        <div className="pf-module-meta-row">
+          {currentModule.estimatedHours && (
+            <span className="pf-module-estimate-pill">
+              ⏱ {currentModule.estimatedHours} hours estimated
+            </span>
+          )}
+
+          {currentModule.resourceTags?.map((tag, idx) => (
+            <span key={idx} className="pf-module-tag-chip">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      </article>
+
+      {/* Completion Action / State Card */}
+      {isActive && (
+        <section className="pf-module-action-card" aria-label="Module Progress Action">
+          <div className="pf-module-action-info">
+            <h2 className="pf-module-action-title">Ready to Complete this Module?</h2>
+            <p className="pf-module-action-desc">
+              Finished studying the materials? Mark this module complete to unlock the
+              next milestone in your roadmap.
+            </p>
           </div>
-        )}
-      </Card>
+
+          <div className="pf-module-action-buttons">
+            {enableCheckpoint && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => navigate(`/checkpoint/${encodeURIComponent(moduleId)}`)}
+              >
+                Take Checkpoint Quiz
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              loading={isCompleting}
+              disabled={isCompleting}
+              onClick={handleMarkComplete}
+            >
+              ✓ Mark as Complete
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {isComplete && (
+        <section
+          className="pf-module-completed-banner"
+          aria-label="Module Completion Status"
+        >
+          <div className="pf-module-completed-left">
+            <div className="pf-module-completed-icon" aria-hidden="true">
+              ✓
+            </div>
+            <div>
+              <h2 className="pf-module-completed-title">Milestone Complete!</h2>
+              <p className="pf-module-completed-desc">
+                You have successfully completed this module. Review the resources anytime
+                or advance to subsequent coursework.
+              </p>
+            </div>
+          </div>
+
+          {enableCheckpoint && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate(`/checkpoint/${encodeURIComponent(moduleId)}`)}
+            >
+              Review Checkpoint Quiz
+            </Button>
+          )}
+        </section>
+      )}
 
       {/* Curated Resources Section */}
-      <section className="module-section">
-        <div className="section-header-compact">
-          <h2 className="section-title">Curated Learning Resources</h2>
-          <p className="section-subtitle">
-            Study each reference carefully. Links open directly in a new tab.
+      <section
+        className="pf-module-resources-section"
+        aria-label="Curated Learning Materials"
+      >
+        <div className="pf-module-resources-heading">
+          <h2 className="pf-module-resources-title">
+            Curated Learning Resources ({currentModule.resources?.length || 0})
+          </h2>
+          <p className="pf-module-resources-sub">
+            Review these handpicked materials to master the topics in this module.
           </p>
         </div>
 
-        {resources.length === 0 ? (
-          <p className="no-resources-note">No specific resources attached to this module.</p>
-        ) : (
-          <div className="resources-cards-grid">
-            {resources.map((res, idx) => {
-              const meta = getResourceMeta(res.type);
-              return (
-                <a
-                  key={idx}
-                  href={res.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="resource-card-link"
-                  aria-label={`${res.title} (${meta.label}) - opens in a new tab`}
-                >
-                  <div className="resource-card-header">
-                    <span className={`resource-type-tag ${meta.tagClass}`}>
-                      <span className="res-icon" aria-hidden="true">{meta.icon}</span>
-                      <span>{meta.label}</span>
-                    </span>
-                    <span className="external-link-arrow" aria-hidden="true">↗</span>
-                  </div>
-
-                  <h3 className="resource-title">{res.title}</h3>
-                  <span className="resource-url-preview">{res.url}</span>
-                </a>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Sub-Task Checklist Section */}
-      <section className="module-section">
-        <Card className="checklist-card">
-          <div className="checklist-header">
-            <div>
-              <h2 className="checklist-title">Learning Task Checklist</h2>
-              <p className="checklist-subtitle">
-                Check off each resource as you complete studying it to enable milestone completion.
-              </p>
-            </div>
-            <div className="checklist-counter-pill">
-              {checkedCount} of {resources.length} completed
-            </div>
-          </div>
-
-          <div className="checklist-items-container" role="group" aria-label="Module Tasks">
-            {resources.map((res, idx) => {
-              const isChecked = Boolean(checkedTasks[idx]);
-              const meta = getResourceMeta(res.type);
-
-              return (
-                <div
-                  key={idx}
-                  className={`checklist-item ${isChecked ? 'item-checked' : ''} ${isModuleComplete ? 'item-readonly' : ''}`}
-                  onClick={() => handleToggleTask(idx)}
-                >
-                  <div className="checklist-checkbox-wrapper">
-                    <input
-                      type="checkbox"
-                      id={`chk-${idx}`}
-                      checked={isChecked}
-                      disabled={isModuleComplete}
-                      onChange={() => handleToggleTask(idx)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="checklist-native-checkbox"
-                    />
-                    <label htmlFor={`chk-${idx}`} className="checklist-label-bubble">
-                      {isChecked && <span>✓</span>}
-                    </label>
-                  </div>
-
-                  <div className="checklist-text-wrapper">
-                    <span className="checklist-action-prefix">
-                      Review &amp; Study {meta.label}:
-                    </span>
-                    <span className="checklist-resource-name">{res.title}</span>
-                  </div>
+        <div className="pf-module-resource-list" role="list">
+          {currentModule.resources?.map((res, idx) => (
+            <a
+              key={idx}
+              href={res.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pf-module-resource-card"
+              role="listitem"
+              aria-label={`${res.title} (${res.type || 'resource'}), opens in new tab`}
+            >
+              <div className="pf-module-resource-left">
+                <span className="pf-module-resource-icon" aria-hidden="true">
+                  {getResourceIcon(res.type)}
+                </span>
+                <div className="pf-module-resource-info">
+                  <span className="pf-module-resource-title">{res.title}</span>
+                  <span className="pf-module-resource-type">
+                    {res.type || 'Resource'}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+              </div>
 
-          {/* Action Bar with Take Checkpoint & Mark as Complete */}
-          <div className="checklist-footer-bar">
-            {!allTasksChecked && isModuleActive && (
-              <span className="checklist-help-text">
-                Complete all {resources.length} learning tasks above to unlock the checkpoint quiz.
+              <span className="pf-module-resource-arrow" aria-hidden="true">
+                ↗
               </span>
-            )}
-
-            {isModuleComplete ? (
-              <div className="module-completed-notice">
-                <span className="notice-icon">✓</span>
-                <span>You have successfully completed this module!</span>
-              </div>
-            ) : (
-              <div className="checklist-actions-group" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <Button
-                  variant="primary"
-                  disabled={!allTasksChecked || !isModuleActive}
-                  onClick={() => navigate(`/module/${currentModule.moduleId}/checkpoint`)}
-                  className="btn-take-checkpoint"
-                >
-                  Take Checkpoint &rarr;
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={!allTasksChecked || !isModuleActive || submitting}
-                  loading={submitting}
-                  onClick={handleMarkAsComplete}
-                  className="btn-mark-complete"
-                  title="Complete milestone directly without taking adaptive quiz"
-                >
-                  Mark as Complete
-                </Button>
-              </div>
-            )}
-          </div>
-        </Card>
+            </a>
+          ))}
+        </div>
       </section>
 
-      {/* Module Checkpoint Assessment Section */}
-      <section className="module-section">
-        <Card className="checkpoint-section-card">
-          <div className="checkpoint-header">
-            <div>
-              <h2 className="checkpoint-title">Module Checkpoint Assessment</h2>
-              <p className="checkpoint-subtitle">
-                Quick diagnostic evaluation to verify conceptual retention and adaptively tune your remaining milestones.
-              </p>
-            </div>
-            {isModuleComplete ? (
-              <span className="badge badge-complete">Complete ✓</span>
-            ) : allTasksChecked ? (
-              <span className="badge badge-active">Unlocked</span>
-            ) : (
-              <span className="badge badge-locked">Locked</span>
-            )}
-          </div>
+      {/* Previous / Next Module Navigation Bar */}
+      <footer className="pf-module-nav-bar" aria-label="Module Navigation">
+        <div className="pf-module-nav-prev">
+          {prevModule && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                navigate(`/module/${encodeURIComponent(prevModule.moduleId)}`)
+              }
+              aria-label={`Go to previous module: ${prevModule.title}`}
+            >
+              ← Previous: {prevModule.title}
+            </Button>
+          )}
+        </div>
 
-          <div className="checkpoint-body">
-            {isModuleComplete ? (
-              <>
-                <p className="checkpoint-description">
-                  You have successfully completed this module assessment.
-                  {currentModule.checkpointScore !== null && currentModule.checkpointScore !== undefined && (
-                    <strong style={{ display: 'block', marginTop: '6px', color: 'var(--color-primary)' }}>
-                      Milestone Score Achieved: {currentModule.checkpointScore}%
-                    </strong>
-                  )}
-                </p>
-                <Button
-                  variant="secondary"
-                  onClick={() => navigate(`/module/${currentModule.moduleId}/checkpoint`)}
-                >
-                  Review Checkpoint &rarr;
-                </Button>
-              </>
-            ) : allTasksChecked ? (
-              <>
-                <p className="checkpoint-description">
-                  All learning tasks checked off! Take this 4-6 question conceptual quiz.
-                  Scoring <strong>80%+</strong> fast-tracks your curriculum by skipping redundant upcoming topics,
-                  while scores under <strong>40%</strong> insert targeted review.
-                </p>
-                <Button
-                  variant="primary"
-                  onClick={() => navigate(`/module/${currentModule.moduleId}/checkpoint`)}
-                  className="btn-take-checkpoint"
-                >
-                  Take Checkpoint Quiz &rarr;
-                </Button>
-              </>
-            ) : (
-              <>
-                <p className="checkpoint-description">
-                  Complete all {resources.length} learning checklist tasks above to unlock the conceptual checkpoint quiz.
-                </p>
-                <Button
-                  variant="secondary"
-                  disabled
-                  className="btn-checkpoint-disabled"
-                  title="Complete all tasks above first"
-                >
-                  Take Checkpoint (Locked)
-                </Button>
-              </>
-            )}
-          </div>
-        </Card>
-      </section>
-    </div>
+        <div className="pf-module-nav-next">
+          {nextModule && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={nextModule.status === 'locked'}
+              onClick={() => {
+                if (nextModule.status !== 'locked') {
+                  navigate(`/module/${encodeURIComponent(nextModule.moduleId)}`);
+                }
+              }}
+              title={
+                nextModule.status === 'locked'
+                  ? 'Complete current module to unlock'
+                  : undefined
+              }
+              aria-label={
+                nextModule.status === 'locked'
+                  ? `Next module: ${nextModule.title} (Locked)`
+                  : `Go to next module: ${nextModule.title}`
+              }
+            >
+              Next: {nextModule.title} {nextModule.status === 'locked' ? '🔒' : '→'}
+            </Button>
+          )}
+        </div>
+      </footer>
+    </main>
   );
-};
-
-export default ModuleDetailPage;
+}

@@ -1,20 +1,16 @@
-import React from 'react';
-import Card from './Card';
-import Button from './Button';
+import { Component } from 'react';
+import Button from './Button.jsx';
+import './ErrorBoundary.css';
 
 /**
- * Global Error Boundary Component
- *
- * Catches rendering errors anywhere in the React component tree, logs the error,
- * and renders a user-friendly fallback view instead of a white screen or raw trace.
+ * Global ErrorBoundary
+ * Catches unhandled JavaScript rendering exceptions across the component tree,
+ * logs them, and renders an accessible fallback card with a "Reload" action.
  */
-class ErrorBoundary extends React.Component {
+export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-    };
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error) {
@@ -22,60 +18,64 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log unexpected runtime UI errors
-    console.error('[PathForge Global Error Boundary Caught]:', error, errorInfo);
+    if (typeof console !== 'undefined' && console.error) {
+      console.error('ErrorBoundary caught unhandled render exception:', error, errorInfo);
+    }
   }
 
   handleReload = () => {
     window.location.reload();
   };
 
-  handleGoHome = () => {
+  handleReset = () => {
     this.setState({ hasError: false, error: null });
-    window.location.href = '/';
   };
 
   render() {
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return typeof this.props.fallback === 'function'
+          ? this.props.fallback({
+              error: this.state.error,
+              reset: this.handleReset,
+              reload: this.handleReload,
+            })
+          : this.props.fallback;
+      }
+
       return (
-        <div className="page-center-container error-boundary-container">
-          <Card className="error-boundary-card text-center" style={{ maxWidth: '580px', padding: '40px 24px' }}>
-            <div
-              className="error-icon-bubble"
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                backgroundColor: 'var(--color-danger-bg)',
-                color: 'var(--color-danger)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '2rem',
-                margin: '0 auto 16px',
-              }}
-              aria-hidden="true"
-            >
-              ⚠️
+        <div className="pf-error-boundary" role="alert" aria-live="assertive">
+          <div className="pf-error-boundary__card">
+            <div className="pf-error-boundary__icon" aria-hidden="true">
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
             </div>
-
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '8px' }}>
-              Something went wrong
-            </h1>
-
-            <p style={{ fontSize: '0.95rem', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginBottom: '24px' }}>
-              An unexpected display issue occurred. Your progress and curriculum data are safe. Please reload the page or return to the main dashboard.
+            <h1 className="pf-error-boundary__title">Something went wrong</h1>
+            <p className="pf-error-boundary__description">
+              An unexpected error occurred while loading this view. You can reload the
+              page or return to the home screen.
             </p>
-
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div className="pf-error-boundary__actions">
               <Button variant="primary" onClick={this.handleReload}>
-                Reload Page
+                Reload page
               </Button>
-              <Button variant="secondary" onClick={this.handleGoHome}>
-                Return to Dashboard
-              </Button>
+              <a href="/" className="pf-error-boundary__home-link">
+                Return home
+              </a>
             </div>
-          </Card>
+          </div>
         </div>
       );
     }
@@ -83,5 +83,3 @@ class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
-
-export default ErrorBoundary;

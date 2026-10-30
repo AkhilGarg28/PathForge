@@ -1,36 +1,49 @@
-import React from 'react';
+import './Card.css';
 
-const Card = ({
+/**
+ * Surface container with token-based borders, radii, elevation, and optional
+ * header/footer slots.
+ */
+export default function Card({
   children,
-  title,
-  subtitle,
-  headerAction,
+  header,
   footer,
+  variant = 'default',
   className = '',
   onClick,
   ...props
-}) => {
-  const isClickable = Boolean(onClick);
+}) {
+  const isInteractive = Boolean(onClick) || variant === 'interactive';
+  const classes = [
+    'pf-card',
+    `pf-card--${variant}`,
+    isInteractive ? 'pf-card--interactive' : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div
-      className={`card ${isClickable ? 'card-clickable' : ''} ${className}`.trim()}
+      className={classes}
       onClick={onClick}
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onKeyDown={
+        isInteractive
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick?.(e);
+              }
+            }
+          : undefined
+      }
       {...props}
     >
-      {(title || subtitle || headerAction) && (
-        <div className="card-header">
-          <div className="card-header-titles">
-            {title && <h3 className="card-title">{title}</h3>}
-            {subtitle && <p className="card-subtitle">{subtitle}</p>}
-          </div>
-          {headerAction && <div className="card-header-action">{headerAction}</div>}
-        </div>
-      )}
-      <div className="card-body">{children}</div>
-      {footer && <div className="card-footer">{footer}</div>}
+      {header && <div className="pf-card__header">{header}</div>}
+      <div className="pf-card__body">{children}</div>
+      {footer && <div className="pf-card__footer">{footer}</div>}
     </div>
   );
-};
-
-export default Card;
+}

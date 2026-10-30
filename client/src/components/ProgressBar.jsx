@@ -1,38 +1,41 @@
-import React from 'react';
+import './ProgressBar.css';
 
-const ProgressBar = ({
+/**
+ * Accessible progress bar utilizing the single amber accent token reserved exclusively
+ * for progression tracking across PathForge.
+ */
+export default function ProgressBar({
   value = 0,
   max = 100,
-  label = '',
-  showPercentage = true,
+  label,
+  showValueText = true,
+  size = 'md',
   className = '',
-}) => {
-  const clampedValue = Math.min(Math.max(0, value), max);
+}) {
+  const clampedValue = Math.min(Math.max(Number(value) || 0, 0), max);
   const percentage = Math.round((clampedValue / max) * 100);
 
   return (
-    <div className={`progress-wrapper ${className}`.trim()}>
-      {(label || showPercentage) && (
-        <div className="progress-labels">
-          {label && <span className="progress-label-text">{label}</span>}
-          {showPercentage && <span className="progress-percentage">{percentage}%</span>}
+    <div className={`pf-progress-container ${className}`.trim()}>
+      {(label || showValueText) && (
+        <div className="pf-progress-header">
+          {label && <span>{label}</span>}
+          {showValueText && (
+            <span className="pf-progress-header__value">{percentage}%</span>
+          )}
         </div>
       )}
+
       <div
-        className="progress-track"
         role="progressbar"
-        aria-label={label || 'Progress'}
-        aria-valuenow={percentage}
+        aria-valuenow={clampedValue}
         aria-valuemin={0}
-        aria-valuemax={100}
+        aria-valuemax={max}
+        aria-label={label || 'Progress'}
+        className={`pf-progress-track pf-progress-track--${size}`}
       >
-        <div
-          className="progress-fill"
-          style={{ width: `${percentage}%` }}
-        />
+        <div className="pf-progress-fill" style={{ width: `${percentage}%` }} />
       </div>
     </div>
   );
-};
-
-export default ProgressBar;
+}

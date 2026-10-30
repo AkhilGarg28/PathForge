@@ -1,395 +1,505 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import Spinner from '../components/Spinner';
-import ErrorMessage from '../components/ErrorMessage';
-import { useAuth } from '../context/AuthContext';
-import { useRoadmap } from '../context/RoadmapContext';
-import { useToast } from '../hooks/useToast';
-import api from '../services/api';
+import * as api from '../services/api.js';
+import { useAuth } from '../hooks/useAuth.js';
+import { useToast } from '../hooks/useToast.js';
+import { usePageTitle } from '../hooks/usePageTitle.js';
+import {
+  validateName,
+  validatePassword,
+  validateConfirmPassword,
+} from '../utils/validation.js';
+import Button from '../components/Button.jsx';
+import Input from '../components/Input.jsx';
+import Modal from '../components/Modal.jsx';
+import './SettingsPage.css';
 
-const SettingsPage = () => {
-  const { user, updateUserState, logout } = useAuth();
-  const { clearRoadmap } = useRoadmap();
-  const { addToast } = useToast();
+function getRoleTitle(id, rolesList = []) {
+  if (!id) return 'None Selected';
+  const match = rolesList.find((r) => r.id === id || r.name === id || r.title === id);
+  if (match?.title) return match.title;
+  if (match?.name) return match.name;
+  if (id === 'mern-developer') return 'MERN Developer';
+  if (id === 'data-analyst') return 'Data Analyst';
+  return id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export default function SettingsPage() {
   const navigate = useNavigate();
+  const { user, refreshUser, logout } = useAuth();
+  const { success, error: toastError } = useToast();
+  usePageTitle('Account Settings');
 
-  const [availableRoles, setAvailableRoles] = useState([]);
-  const [loadingRoles, setLoadingRoles] = useState(true);
-  const [rolesError, setRolesError] = useState(null);
+  const [roles, setRoles] = useState([]);
 
-  const [selectedNewRoleId, setSelectedNewRoleId] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSwitching, setIsSwitching] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  const modalRef = useRef(null);
-  const triggerBtnRef = useRef(null);
-  const cancelBtnRef = useRef(null);
-
-  // 1. Fetch available roles for the dropdown
-  const fetchRolesList = useCallback(async () => {
-    setLoadingRoles(true);
-    setRolesError(null);
-    try {
-      const response = await api.get('/roles');
-      setAvailableRoles(response.data?.roles || []);
-    } catch (err) {
-      setRolesError('Failed to load available roles.');
-    } finally {
-      setLoadingRoles(false);
-    }
-  }, []);
-
+  // Fetch available roles metadata
   useEffect(() => {
-    fetchRolesList();
-  }, [fetchRolesList]);
-
-  // Selected role object
-  const newRoleObj = availableRoles.find((r) => r.id === selectedNewRoleId);
-
-  // 2. Accessible modal: focus trapping & Escape key listener
-  useEffect(() => {
-    if (!isModalOpen) return;
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        closeModal();
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        const focusableElements = modalRef.current?.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (!focusableElements || focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (e.shiftKey) {
-          if (document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-          }
-        } else {
-          if (document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
+    let isCancelled = false;
+    api
+      .getRoles()
+      .then((res) => {
+        if (!isCancelled) {
+          setRoles(res.roles || []);
         }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-
-    // Auto-focus the cancel button when modal opens
-    const focusTimer = setTimeout(() => {
-      cancelBtnRef.current?.focus();
-    }, 50);
+      })
+      .catch(() => {
+        // Non-critical metadata
+      });
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      clearTimeout(focusTimer);
+      isCancelled = true;
     };
-  }, [isModalOpen]);
+  }, []);
 
-  const openModal = () => {
-    if (!selectedNewRoleId) return;
-    setIsModalOpen(true);
-  };
+  // --------------------------------------------------------------------------
+  // 1. Profile Section State
+  // --------------------------------------------------------------------------
+  const [customName, setCustomName] = useState(null);
+  const name = customName !== null ? customName : user?.name || '';
+  const [nameError, setNameError] = useState(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    // Restore focus to the trigger button for accessibility
-    setTimeout(() => {
-      triggerBtnRef.current?.focus();
-    }, 50);
-  };
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    if (isSavingProfile) return;
 
-  // 3. Confirm target role change: archives roadmap and navigates to /diagnostic
-  const handleConfirmRoleChange = async () => {
-    if (!selectedNewRoleId || isSwitching) return;
-
-    setIsSwitching(true);
-    try {
-      const response = await api.post('/user/role', { roleId: selectedNewRoleId });
-
-      if (response.data && response.data.user) {
-        updateUserState(response.data.user);
-      }
-
-      // Clear existing active roadmap in context
-      clearRoadmap();
-
-      // Clear previous diagnostic sessionStorage cache for this user
-      if (user?.id) {
-        try {
-          const keysToRemove = [];
-          for (let i = 0; i < sessionStorage.length; i++) {
-            const key = sessionStorage.key(i);
-            if (key && key.startsWith(`pathforge_diagnostic_progress_${user.id}_`)) {
-              keysToRemove.push(key);
-            }
-          }
-          keysToRemove.forEach((k) => sessionStorage.removeItem(k));
-        } catch (e) {
-          console.warn('Storage cleanup notice:', e);
-        }
-      }
-
-      addToast(
-        `Switched target role to ${newRoleObj?.name || 'new role'}. Starting new diagnostic assessment!`,
-        'success'
-      );
-
-      closeModal();
-      navigate('/diagnostic', {
-        state: { roleId: selectedNewRoleId, retake: true },
-        replace: true,
-      });
-    } catch (err) {
-      console.error('Failed to update role:', err);
-      const msg = err.response?.data?.message || 'Failed to change role. Please try again.';
-      addToast(msg, 'error');
-      setIsSwitching(false);
+    const validationErr = validateName(name);
+    if (validationErr) {
+      setNameError(validationErr);
+      return;
     }
-  };
+    setNameError(null);
+    setIsSavingProfile(true);
 
-  // 4. Logout action: calls API, clears state and redirects to /
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
     try {
-      await logout();
-      addToast('Logged out successfully', 'info');
-      navigate('/', { replace: true });
+      await api.updateProfile({ name: name.trim() });
+      await refreshUser();
+      setCustomName(null);
+      success('Profile updated successfully.');
     } catch (err) {
-      console.error('Logout error:', err);
-      navigate('/', { replace: true });
+      toastError(err.message || 'Failed to update profile.');
     } finally {
-      setIsLoggingOut(false);
+      setIsSavingProfile(false);
     }
   };
+
+  // --------------------------------------------------------------------------
+  // 2. Change Password Section State
+  // --------------------------------------------------------------------------
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [currentPasswordError, setCurrentPasswordError] = useState(null);
+  const [newPasswordError, setNewPasswordError] = useState(null);
+  const [confirmPasswordError, setConfirmPasswordError] = useState(null);
+  const [passwordServerErr, setPasswordServerErr] = useState(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (isUpdatingPassword) return;
+
+    let hasErrors = false;
+
+    if (!currentPassword) {
+      setCurrentPasswordError('Current password is required.');
+      hasErrors = true;
+    } else {
+      setCurrentPasswordError(null);
+    }
+
+    const newPassErr = validatePassword(newPassword);
+    if (newPassErr) {
+      setNewPasswordError(newPassErr);
+      hasErrors = true;
+    } else {
+      setNewPasswordError(null);
+    }
+
+    const confirmErr = validateConfirmPassword(confirmPassword, newPassword);
+    if (confirmErr) {
+      setConfirmPasswordError(confirmErr);
+      hasErrors = true;
+    } else {
+      setConfirmPasswordError(null);
+    }
+
+    if (hasErrors) return;
+
+    setIsUpdatingPassword(true);
+    setPasswordServerErr(null);
+
+    try {
+      await api.updatePassword({
+        currentPassword,
+        newPassword,
+      });
+      success('Password updated successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setCurrentPasswordError(null);
+      setNewPasswordError(null);
+      setConfirmPasswordError(null);
+    } catch (err) {
+      const msg = err.message || 'Failed to update password.';
+      setPasswordServerErr(msg);
+      if (err.code === 'INVALID_PASSWORD' || err.status === 401) {
+        setCurrentPasswordError('Current password is incorrect.');
+      }
+      toastError(msg);
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // 3. Target Role Section State
+  // --------------------------------------------------------------------------
+  const [showRoleModal, setShowRoleModal] = useState(false);
+
+  const handleConfirmChangeRole = useCallback(() => {
+    setShowRoleModal(false);
+    navigate('/role-selection');
+  }, [navigate]);
+
+  // --------------------------------------------------------------------------
+  // 4. Danger Zone / Delete Account Section State
+  // --------------------------------------------------------------------------
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleCloseDeleteModal = useCallback(() => {
+    setShowDeleteModal(false);
+    setDeletePassword('');
+    setDeleteError(null);
+  }, []);
+
+  const handleConfirmDelete = async (e) => {
+    e.preventDefault();
+    if (isDeleting) return;
+
+    if (!deletePassword) {
+      setDeleteError('Please enter your password to confirm deletion.');
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      await api.deleteUser({ password: deletePassword });
+      handleCloseDeleteModal();
+      await logout();
+      success('Your account has been deleted.');
+      navigate('/');
+    } catch (err) {
+      const msg = err.message || 'Failed to delete account.';
+      setDeleteError(msg);
+      toastError(msg);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const activeRoleTitle = getRoleTitle(user?.roleId || user?.targetRole, roles);
 
   return (
-    <div className="page-container settings-page-container">
-      <div className="page-header">
-        <h1 className="page-title">Account Settings</h1>
-        <p className="page-subtitle">
-          Manage your personal account profile, authentication session, and career path settings.
+    <main id="main-content" className="pf-settings-page">
+      <header className="pf-settings-header">
+        <h1 className="pf-settings-title">Account Settings</h1>
+        <p className="pf-settings-subtitle">
+          Manage your personal details, credentials, and career roadmap preferences.
         </p>
-      </div>
+      </header>
 
-      <div className="settings-cards-stack">
-        {/* 1. Read-Only Profile & Current Target Role Card */}
-        <Card
-          title="Profile Information"
-          subtitle="Your account details and current specialization"
-        >
-          <div className="settings-fields-grid">
-            <div className="form-group">
-              <label className="form-label" htmlFor="settings-name">
-                Full Name
-              </label>
-              <input
-                id="settings-name"
-                type="text"
-                readOnly
-                disabled
-                className="form-input form-input-readonly"
-                value={user?.name || ''}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="settings-email">
-                Email Address
-              </label>
-              <input
-                id="settings-email"
-                type="email"
-                readOnly
-                disabled
-                className="form-input form-input-readonly"
-                value={user?.email || ''}
-              />
-            </div>
-          </div>
-
-          <div className="current-role-display-box">
-            <div className="role-label-group">
-              <span className="role-label-heading">Current Target Role</span>
-              <span className="role-label-subtext">
-                Your active curriculum and milestone roadmap are configured for this path.
-              </span>
-            </div>
-            <div className="role-badge-group">
-              {user?.targetRole ? (
-                <span className="badge badge-active role-active-badge">
-                  {user.targetRole}
-                </span>
-              ) : (
-                <span className="badge badge-locked">No Role Selected</span>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        {/* 2. Danger Zone: Change Target Role Section */}
-        <div className="danger-zone-card">
-          <div className="danger-zone-header">
-            <div className="danger-zone-badge">
-              <span aria-hidden="true">⚠️</span> Danger Zone
-            </div>
-            <h2 className="danger-zone-title">Change Target Role</h2>
-            <p className="danger-zone-subtitle">
-              Switching your target role will archive your active curriculum and require a new diagnostic assessment.
+      <div className="pf-settings-sections">
+        {/* Section 1: Profile */}
+        <section className="pf-settings-card" aria-labelledby="profile-heading">
+          <div className="pf-settings-card__header">
+            <h2 id="profile-heading" className="pf-settings-card__title">
+              Profile Information
+            </h2>
+            <p className="pf-settings-card__desc">
+              Update your display name. Your email address is read-only.
             </p>
           </div>
 
-          {rolesError && (
-            <ErrorMessage message={rolesError} onRetry={fetchRolesList} style={{ marginBottom: '16px' }} />
-          )}
+          <form onSubmit={handleProfileSubmit} noValidate>
+            <div className="pf-settings-card__body">
+              <Input
+                label="Full Name"
+                name="name"
+                value={name}
+                onChange={(e) => {
+                  setCustomName(e.target.value);
+                  if (nameError) setNameError(null);
+                }}
+                error={nameError}
+                required
+                autoComplete="name"
+              />
 
-          <div className="danger-zone-controls">
-            <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label" htmlFor="new-role-select">
-                Select New Target Role
-              </label>
-              {loadingRoles ? (
-                <div style={{ padding: '8px 0' }}>
-                  <Spinner size="sm" label="Loading available roles..." />
+              <Input
+                label="Email Address"
+                value={user?.email || ''}
+                disabled
+                hint="Your registered login email address cannot be changed."
+              />
+            </div>
+
+            <div className="pf-settings-card__footer">
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                loading={isSavingProfile}
+                disabled={isSavingProfile || name.trim() === (user?.name || '')}
+              >
+                Save Profile
+              </Button>
+            </div>
+          </form>
+        </section>
+
+        {/* Section 2: Change Password */}
+        <section className="pf-settings-card" aria-labelledby="password-heading">
+          <div className="pf-settings-card__header">
+            <h2 id="password-heading" className="pf-settings-card__title">
+              Change Password
+            </h2>
+            <p className="pf-settings-card__desc">
+              Choose a strong password containing at least 8 characters with letters and
+              numbers.
+            </p>
+          </div>
+
+          <form onSubmit={handlePasswordSubmit} noValidate>
+            <div className="pf-settings-card__body">
+              {passwordServerErr && (
+                <div className="pf-settings-inline-error" role="alert" aria-live="polite">
+                  {passwordServerErr}
                 </div>
-              ) : (
-                <select
-                  id="new-role-select"
-                  className="form-input settings-role-select"
-                  value={selectedNewRoleId}
-                  onChange={(e) => setSelectedNewRoleId(e.target.value)}
-                >
-                  <option value="">-- Choose a new role --</option>
-                  {availableRoles.map((r) => {
-                    const isCurrent = r.name === user?.targetRole;
-                    return (
-                      <option key={r.id} value={r.id} disabled={isCurrent}>
-                        {r.name} {isCurrent ? '(Current Role)' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
               )}
+
+              <Input
+                label="Current Password"
+                type="password"
+                name="currentPassword"
+                value={currentPassword}
+                onChange={(e) => {
+                  setCurrentPassword(e.target.value);
+                  if (currentPasswordError) setCurrentPasswordError(null);
+                }}
+                error={currentPasswordError}
+                required
+                autoComplete="current-password"
+              />
+
+              <Input
+                label="New Password"
+                type="password"
+                name="newPassword"
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  if (newPasswordError) setNewPasswordError(null);
+                }}
+                error={newPasswordError}
+                hint="Must be at least 8 characters with at least one letter and one number."
+                required
+                autoComplete="new-password"
+              />
+
+              <Input
+                label="Confirm New Password"
+                type="password"
+                name="confirmPassword"
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (confirmPasswordError) setConfirmPasswordError(null);
+                }}
+                error={confirmPasswordError}
+                required
+                autoComplete="new-password"
+              />
             </div>
 
-            <Button
-              ref={triggerBtnRef}
-              variant="secondary"
-              className="btn-danger-outline"
-              disabled={!selectedNewRoleId || selectedNewRoleId === '' || loadingRoles}
-              onClick={openModal}
-            >
-              Change Target Role
-            </Button>
-          </div>
-
-          <div className="danger-zone-note">
-            <span className="note-icon" aria-hidden="true">ℹ️</span>
-            <span>
-              All progress completed in your current roadmap will be safely preserved in history.
-            </span>
-          </div>
-        </div>
-
-        {/* 3. Account Session & Logout */}
-        <Card title="Account Session" subtitle="Manage your active login session">
-          <div className="session-logout-row">
-            <div>
-              <p className="session-text">
-                Signed in as <strong>{user?.email}</strong>. Logging out clears your authentication cookie from this browser.
-              </p>
+            <div className="pf-settings-card__footer">
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                loading={isUpdatingPassword}
+                disabled={isUpdatingPassword}
+              >
+                Update Password
+              </Button>
             </div>
+          </form>
+        </section>
+
+        {/* Section 3: Target Role */}
+        <section className="pf-settings-card" aria-labelledby="role-heading">
+          <div className="pf-settings-card__header">
+            <h2 id="role-heading" className="pf-settings-card__title">
+              Target Career Role
+            </h2>
+            <p className="pf-settings-card__desc">
+              Your personalized curriculum and roadmap are aligned with this career path.
+            </p>
+          </div>
+
+          <div className="pf-settings-card__body">
+            <div className="pf-settings-role-box">
+              <div className="pf-settings-role-info">
+                <span className="pf-settings-role-label">Active Career Path</span>
+                <span className="pf-settings-role-title">🎯 {activeRoleTitle}</span>
+              </div>
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => setShowRoleModal(true)}
+              >
+                Change Role
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 4: Danger Zone */}
+        <section
+          className="pf-settings-card pf-settings-card--danger"
+          aria-labelledby="danger-heading"
+        >
+          <div className="pf-settings-card__header">
+            <h2 id="danger-heading" className="pf-settings-card__title">
+              <span aria-hidden="true">⚠️</span> Danger Zone
+            </h2>
+            <p className="pf-settings-card__desc">
+              Permanent account actions that cannot be undone.
+            </p>
+          </div>
+
+          <div className="pf-settings-card__body">
+            <div className="pf-settings-danger-banner">
+              <strong>Account Deletion Notice:</strong>
+              <span>
+                Deleting your account will immediately remove your profile, diagnostic
+                results, learning history, and progress milestones.
+              </span>
+            </div>
+          </div>
+
+          <div className="pf-settings-card__footer">
             <Button
-              variant="secondary"
-              className="btn-logout-settings"
-              onClick={handleLogout}
-              loading={isLoggingOut}
-              disabled={isLoggingOut}
+              type="button"
+              variant="danger"
+              size="md"
+              onClick={() => setShowDeleteModal(true)}
             >
-              Log Out of PathForge
+              Delete Account
             </Button>
           </div>
-        </Card>
+        </section>
       </div>
 
-      {/* 4. Accessible Confirmation Modal */}
-      {isModalOpen && (
-        <div
-          className="modal-backdrop"
-          onClick={closeModal}
-          role="presentation"
-        >
-          <div
-            ref={modalRef}
-            className="modal-card modal-card-danger"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="danger-modal-title"
-            aria-describedby="danger-modal-desc"
-          >
-            <div className="modal-danger-header">
-              <span className="modal-danger-icon" aria-hidden="true">⚠️</span>
-              <div>
-                <h3 id="danger-modal-title" className="modal-title">
-                  Confirm Target Role Switch
-                </h3>
-                <span className="modal-danger-tag">Irreversible Curriculum Reset</span>
-              </div>
-            </div>
+      {/* Confirmation Modal: Change Role */}
+      <Modal
+        isOpen={showRoleModal}
+        onClose={() => setShowRoleModal(false)}
+        title="Change Target Career Role?"
+        size="md"
+        role="dialog"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={() => setShowRoleModal(false)}
+            >
+              Keep Current Role
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              onClick={handleConfirmChangeRole}
+            >
+              Change Role & Replace Roadmap
+            </Button>
+          </>
+        }
+      >
+        <p>
+          Selecting a new career track will <strong>replace your current roadmap</strong>{' '}
+          and module milestones. You will take the diagnostic assessment tailored to your
+          newly chosen role.
+        </p>
+        <p>Are you sure you want to proceed to role selection?</p>
+      </Modal>
 
-            <div id="danger-modal-desc" className="modal-danger-body">
-              <p className="modal-body-text">
-                You are about to switch your career path from{' '}
-                <strong>{user?.targetRole || 'Current Role'}</strong> to{' '}
-                <strong className="text-primary-highlight">{newRoleObj?.name}</strong>.
-              </p>
+      {/* Confirmation Modal: Delete Account (Focus Trap & Password required) */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={handleCloseDeleteModal}
+        title="Permanently Delete Account"
+        size="md"
+        role="alertdialog"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              disabled={isDeleting}
+              onClick={handleCloseDeleteModal}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              size="md"
+              loading={isDeleting}
+              disabled={isDeleting}
+              onClick={handleConfirmDelete}
+            >
+              Permanently Delete Account
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <p>
+            This action is <strong>irreversible</strong>. All your learning milestones,
+            checkpoint quizzes, and diagnostic history will be erased.
+          </p>
 
-              <div className="modal-warning-callout">
-                <p>
-                  <strong>⚠️ What will happen:</strong>
-                </p>
-                <ul className="modal-warning-list">
-                  <li>Your active roadmap for <strong>{user?.targetRole}</strong> will be immediately <strong>archived</strong>.</li>
-                  <li>You will be sent to the <strong>Skill Diagnostic</strong> to answer 12 questions for <strong>{newRoleObj?.name}</strong>.</li>
-                  <li>A completely fresh, personalized milestone curriculum will be forged for your new role.</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="modal-actions">
-              <Button
-                ref={cancelBtnRef}
-                variant="secondary"
-                onClick={closeModal}
-                disabled={isSwitching}
-              >
-                Cancel &amp; Keep Current Role
-              </Button>
-              <Button
-                variant="primary"
-                className="btn-danger-confirm"
-                onClick={handleConfirmRoleChange}
-                loading={isSwitching}
-                disabled={isSwitching}
-              >
-                Yes, Archive &amp; Start Diagnostic &rarr;
-              </Button>
-            </div>
-          </div>
+          <form onSubmit={handleConfirmDelete} noValidate>
+            <Input
+              label="Enter your password to confirm deletion"
+              type="password"
+              name="deletePassword"
+              value={deletePassword}
+              onChange={(e) => {
+                setDeletePassword(e.target.value);
+                if (deleteError) setDeleteError(null);
+              }}
+              error={deleteError}
+              required
+              autoComplete="current-password"
+            />
+          </form>
         </div>
-      )}
-    </div>
+      </Modal>
+    </main>
   );
-};
-
-export default SettingsPage;
+}

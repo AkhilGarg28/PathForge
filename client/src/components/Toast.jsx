@@ -1,34 +1,38 @@
-import React from 'react';
+import './Toast.css';
 
-const Toast = ({ id: _id, message, type = 'info', onClose }) => {
-  const getIcon = () => {
-    switch (type) {
-      case 'success':
-        return '✓';
-      case 'error':
-        return '✕';
-      case 'warning':
-        return '!';
-      default:
-        return 'ℹ';
-    }
-  };
-
-  return (
-    <div className={`toast toast-${type}`} role="alert">
-      <span className="toast-icon">{getIcon()}</span>
-      <div className="toast-content">{message}</div>
-      {onClose && (
-        <button
-          className="toast-close-btn"
-          onClick={onClose}
-          aria-label="Close notification"
-        >
-          &times;
-        </button>
-      )}
-    </div>
-  );
+const VARIANT_ICONS = {
+  success: '✓',
+  error: '⚠',
+  info: 'ℹ',
 };
 
-export default Toast;
+/**
+ * Accessible individual toast notification.
+ */
+export default function Toast({ id, type = 'info', message, onDismiss }) {
+  const isError = type === 'error';
+
+  return (
+    <div
+      role={isError ? 'alert' : 'status'}
+      aria-live={isError ? 'assertive' : 'polite'}
+      className={`pf-toast pf-toast--${type}`}
+    >
+      <div className="pf-toast__content">
+        <span className="pf-toast__icon" aria-hidden="true">
+          {VARIANT_ICONS[type] || '•'}
+        </span>
+        <p className="pf-toast__message">{message}</p>
+      </div>
+
+      <button
+        type="button"
+        className="pf-toast__close-btn"
+        onClick={() => onDismiss(id)}
+        aria-label="Dismiss notification"
+      >
+        <span aria-hidden="true">✕</span>
+      </button>
+    </div>
+  );
+}
