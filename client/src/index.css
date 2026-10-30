@@ -1043,7 +1043,7 @@ input, textarea, select {
 
 .badge-locked {
   background-color: #F1F5F9;
-  color: var(--color-status-locked);
+  color: #475569;
   border: 1px solid #CBD5E1;
 }
 
@@ -1134,8 +1134,29 @@ input, textarea, select {
   }
 }
 
-@media (max-width: 400px) {
+@media (max-width: 480px) {
+  .navbar-container {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
   .navbar-nav {
+    display: flex;
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    overflow-x: auto;
+    gap: 4px;
+    padding-top: 6px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .navbar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .user-welcome {
     display: none;
   }
 
@@ -3302,4 +3323,216 @@ input, textarea, select {
   box-shadow: 0 0 0 5px rgba(217, 119, 6, 0.35) !important;
   background-color: #D97706 !important;
   border-color: #B45309 !important;
+}
+
+
+/* =============================================================
+   ACCESSIBILITY & RESPONSIVE POLISH (360px, 768px, 1280px)
+   ============================================================= */
+
+/* Visible Focus Rings */
+.diagnostic-option-card:focus-visible {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 2px;
+  border-color: var(--color-primary) !important;
+}
+
+.role-selection-card:focus-visible {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 3px;
+  border-color: var(--color-primary) !important;
+}
+
+.checklist-item:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(6, 90, 130, 0.2);
+}
+
+.checklist-native-checkbox:focus-visible ~ .checklist-label-bubble {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 2px;
+}
+
+.resource-card-link:focus-visible {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 2px;
+}
+
+.breadcrumb-back-link:focus-visible,
+.clear-search-btn:focus-visible {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* -------------------------------------------------------------
+   360px (Mobile Screen) Layout Polishing
+   ------------------------------------------------------------- */
+@media (max-width: 480px) {
+  .page-container {
+    padding: var(--space-2) 12px;
+  }
+
+  .hero-title {
+    font-size: 1.65rem;
+    line-height: 1.25;
+  }
+
+  .hero-subtitle {
+    font-size: var(--font-size-base);
+    line-height: 1.5;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  /* Diagnostic and Checkpoint Options */
+  .diagnostic-option-card {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .option-indicator-bubble {
+    width: 28px;
+    height: 28px;
+    font-size: var(--font-size-xs);
+  }
+
+  .question-prompt-text {
+    font-size: 1.15rem;
+    line-height: 1.35;
+  }
+
+  /* Stepper on Mobile (360px) */
+  .vertical-stepper {
+    padding-left: 0;
+  }
+
+  .stepper-rail {
+    width: 28px;
+    margin-right: 10px;
+  }
+
+  .stepper-node {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+
+  .stepper-module-card {
+    padding: 14px 12px;
+  }
+
+  .module-title {
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+
+  .module-card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .module-footer-action {
+    width: 100%;
+  }
+
+  .active-link, .complete-link {
+    display: inline-block;
+    width: 100%;
+    text-align: right;
+  }
+
+  /* Modal responsive on 360px */
+  .modal-card {
+    width: calc(100% - 24px);
+    max-width: 420px;
+    padding: 20px 16px;
+    margin: 12px;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .modal-actions .btn {
+    width: 100%;
+  }
+
+  /* Checkpoint Result on 360px */
+  .checkpoint-result-card {
+    padding: 24px 16px;
+  }
+
+  .score-circle {
+    width: 110px;
+    height: 110px;
+  }
+
+  .score-number {
+    font-size: 1.85rem;
+  }
+
+  .result-headline {
+    font-size: 1.35rem;
+  }
+
+  /* Roles Action Bar */
+  .roles-action-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .btn-continue-roles {
+    width: 100%;
+  }
+}
+
+/* -------------------------------------------------------------
+   768px (Tablet Screen) Layout Polishing
+   ------------------------------------------------------------- */
+@media (min-width: 481px) and (max-width: 768px) {
+  .dashboard-top-section {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .steps-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .resources-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .roles-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -------------------------------------------------------------
+   1280px (Desktop Screen) Layout Polishing
+   ------------------------------------------------------------- */
+@media (min-width: 1280px) {
+  .page-container {
+    max-width: 1200px;
+  }
+
+  .dashboard-top-section {
+    grid-template-columns: 380px 1fr;
+    gap: var(--space-4);
+    align-items: start;
+  }
+
+  .roles-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+  }
 }

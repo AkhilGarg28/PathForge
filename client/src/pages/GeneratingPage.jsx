@@ -207,7 +207,7 @@ const GeneratingPage = () => {
             )}
 
             <p className="generating-subhint">
-              Target Role: <strong>{cachedPayload?.roleName || user?.targetRole || 'Tech Career'}</strong>
+              Target Role: <strong>{cachedPayload?.roleName || user?.targetRole || 'Target Role'}</strong>
             </p>
           </div>
         ) : error ? (

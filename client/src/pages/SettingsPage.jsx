@@ -36,7 +36,7 @@ const SettingsPage = () => {
       const response = await api.get('/roles');
       setAvailableRoles(response.data?.roles || []);
     } catch (err) {
-      setRolesError('Failed to load available career roles.');
+      setRolesError('Failed to load available roles.');
     } finally {
       setLoadingRoles(false);
     }
@@ -242,7 +242,7 @@ const SettingsPage = () => {
             <div className="danger-zone-badge">
               <span aria-hidden="true">⚠️</span> Danger Zone
             </div>
-            <h2 className="danger-zone-title">Change Target Career Role</h2>
+            <h2 className="danger-zone-title">Change Target Role</h2>
             <p className="danger-zone-subtitle">
               Switching your target role will archive your active curriculum and require a new diagnostic assessment.
             </p>

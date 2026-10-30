@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -33,6 +33,53 @@ const DiagnosticPage = () => {
   const [answers, setAnswers] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const confirmModalRef = useRef(null);
+  const reviewBtnRef = useRef(null);
+
+  // Accessible modal listener: Escape key and Focus Trap
+  useEffect(() => {
+    if (!showConfirmModal) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setShowConfirmModal(false);
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const focusable = confirmModalRef.current?.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable || focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    const timer = setTimeout(() => {
+      reviewBtnRef.current?.focus();
+    }, 50);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(timer);
+    };
+  }, [showConfirmModal]);
 
   const storageKey = useMemo(() => {
     if (!user?.id || !roleId) return null;
@@ -357,9 +404,21 @@ const DiagnosticPage = () => {
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal-card">
-            <h3 className="modal-title">Submit Diagnostic Assessment</h3>
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-modal-title"
+          onClick={() => !isSubmitting && setShowConfirmModal(false)}
+        >
+          <div
+            className="modal-card"
+            ref={confirmModalRef}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="confirm-modal-title" className="modal-title">
+              Submit Diagnostic Assessment
+            </h3>
             <p className="modal-body-text">
               You have answered all <strong>{questions.length}</strong> questions for the{' '}
               <strong>{roleName}</strong> diagnostic.
@@ -371,6 +430,7 @@ const DiagnosticPage = () => {
             <div className="modal-actions">
               <Button
                 variant="secondary"
+                ref={reviewBtnRef}
                 onClick={() => setShowConfirmModal(false)}
                 disabled={isSubmitting}
               >

@@ -86,7 +86,7 @@ const RolesPage = () => {
   return (
     <div className="page-container roles-page">
       <div className="page-header">
-        <h1 className="page-title">Choose Your Target Career Role</h1>
+        <h1 className="page-title">Choose Your Target Role</h1>
         <p className="page-subtitle">
           Select a technical role to assess your baseline competency across its core skill dimensions.
         </p>

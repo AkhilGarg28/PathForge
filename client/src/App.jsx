@@ -15,6 +15,7 @@ import DashboardPage from './pages/DashboardPage';
 import ModuleDetailPage from './pages/ModuleDetailPage';
 import CheckpointPage from './pages/CheckpointPage';
 import SettingsPage from './pages/SettingsPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 function App() {
   return (
@@ -42,8 +43,8 @@ function App() {
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<LandingPage />} />
+          {/* Friendly 404 Fallback */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
     </div>

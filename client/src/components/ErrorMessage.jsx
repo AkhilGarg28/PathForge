@@ -19,7 +19,9 @@ const ErrorMessage = ({
           <ul className="error-list">
             {errors.map((err, index) => (
               <li key={index} className="error-item">
-                {typeof err === 'string' ? err : err.message || JSON.stringify(err)}
+                {typeof err === 'string'
+                  ? err
+                  : err.message || (err.msg ? err.msg : 'An unexpected error occurred.')}
               </li>
             ))}
           </ul>

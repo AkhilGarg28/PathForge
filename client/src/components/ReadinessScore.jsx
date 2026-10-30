@@ -55,7 +55,7 @@ const ReadinessScore = ({
       </div>
 
       <div className="readiness-meta-content">
-        <h3 className="readiness-title">Career Readiness Score</h3>
+        <h3 className="readiness-title">Readiness Score</h3>
         <p className="readiness-subtitle">
           Weighted progress calculated from completed curriculum milestones.
         </p>
