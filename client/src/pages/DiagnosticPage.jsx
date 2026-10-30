@@ -5,6 +5,7 @@ import Button from '../components/Button';
 import Spinner from '../components/Spinner';
 import ProgressBar from '../components/ProgressBar';
 import ErrorMessage from '../components/ErrorMessage';
+import QuizQuestion from '../components/QuizQuestion';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/useToast';
 import { useRoadmap } from '../context/RoadmapContext';
@@ -315,44 +316,11 @@ const DiagnosticPage = () => {
       </div>
 
       {/* Main Single-Question Card */}
-      <Card className="diagnostic-question-card">
-        <div className="question-dimension-tag">
-          <span className="dimension-label-pill">Dimension: {currentQuestion.dimension}</span>
-        </div>
-
-        <h2 className="question-prompt-text">{currentQuestion.question}</h2>
-
-        {/* Interactive Options List */}
-        <div className="options-container" role="radiogroup" aria-labelledby="question-prompt">
-          {currentQuestion.options.map((optionText, optIdx) => {
-            const isOptionSelected = selectedIndexForCurrent === optIdx;
-            return (
-              <div
-                key={optIdx}
-                className={`diagnostic-option-card ${isOptionSelected ? 'selected' : ''}`}
-                onClick={() => handleSelectOption(optIdx)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleSelectOption(optIdx);
-                  }
-                }}
-                tabIndex={0}
-                role="radio"
-                aria-checked={isOptionSelected}
-              >
-                <div className="option-indicator-bubble">
-                  {String.fromCharCode(65 + optIdx)}
-                </div>
-                <div className="option-text-content">{optionText}</div>
-                {isOptionSelected && (
-                  <div className="option-selected-check" aria-hidden="true">✓</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </Card>
+      <QuizQuestion
+        question={currentQuestion}
+        selectedIndex={selectedIndexForCurrent}
+        onSelectOption={handleSelectOption}
+      />
 
       {/* Navigation Buttons: Back, Next, Submit */}
       <div className="diagnostic-nav-bar">

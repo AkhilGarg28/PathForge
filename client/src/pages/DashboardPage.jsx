@@ -8,16 +8,22 @@ import ReadinessHistoryChart from '../components/ReadinessHistoryChart';
 import DashboardSkeleton from '../components/DashboardSkeleton';
 import { useAuth } from '../context/AuthContext';
 import { useRoadmap } from '../context/RoadmapContext';
+import { useToast } from '../hooks/useToast';
 import api from '../services/api';
 
 const DashboardPage = () => {
   const { user } = useAuth();
   const { roadmap, setRoadmap } = useRoadmap();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
   const highlightedModuleId = location.state?.highlightedModuleId;
+  const changedModuleIds = location.state?.changedModuleIds || [];
+  const replanToast = location.state?.replanToast;
   const highlightedRef = useRef(null);
+
+  
 
   const [localLoading, setLocalLoading] = useState(!roadmap);
   const [localError, setLocalError] = useState(null);
@@ -51,12 +57,26 @@ const DashboardPage = () => {
     fetchDashboardRoadmap();
   }, [fetchDashboardRoadmap]);
 
-  // Scroll highlighted module into view when navigated from completion
+  // Toast for adaptive re-planning updates
   useEffect(() => {
-    if (highlightedModuleId && highlightedRef.current) {
+    if (replanToast) {
+      addToast('Roadmap updated based on your result', 'info');
+      navigate(location.pathname, {
+        replace: true,
+        state: {
+          ...location.state,
+          replanToast: false,
+        },
+      });
+    }
+  }, [replanToast, addToast, navigate, location.pathname, location.state]);
+
+  // Scroll highlighted or changed module into view
+  useEffect(() => {
+    if ((highlightedModuleId || changedModuleIds.length > 0) && highlightedRef.current) {
       highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [highlightedModuleId, roadmap]);
+  }, [highlightedModuleId, changedModuleIds, roadmap]);
 
   // 1. Loading State with Skeletons
   if (localLoading && !roadmap) {
@@ -183,9 +203,13 @@ const DashboardPage = () => {
             const isLocked = mod.status === 'locked';
             const isClickable = isActive || isComplete;
             const targetId = mod.moduleId || mod._id || mod.id;
+            const isChanged =
+              changedModuleIds.includes(mod.moduleId) ||
+              (mod._id && changedModuleIds.includes(mod._id.toString()));
             const isHighlighted =
-              highlightedModuleId &&
-              (mod.moduleId === highlightedModuleId || mod._id?.toString() === highlightedModuleId);
+              isChanged ||
+              (highlightedModuleId &&
+                (mod.moduleId === highlightedModuleId || mod._id?.toString() === highlightedModuleId));
 
             return (
               <div
@@ -196,7 +220,7 @@ const DashboardPage = () => {
               >
                 {/* Stepper Node & Connecting Line */}
                 <div className="stepper-rail">
-                  <div className={`stepper-node stepper-node-${mod.status} ${isHighlighted ? 'stepper-node-highlighted' : ''}`}>
+                  <div className={`stepper-node stepper-node-${mod.status} ${isChanged ? 'stepper-node-changed' : isHighlighted ? 'stepper-node-highlighted' : ''}`}>
                     {isComplete && <span className="node-icon">✓</span>}
                     {isActive && <span className="node-icon">▶</span>}
                     {isLocked && <span className="node-icon">🔒</span>}
@@ -219,12 +243,19 @@ const DashboardPage = () => {
                   aria-label={`${mod.title}, status: ${mod.status}`}
                 >
                   <Card
-                    className={`stepper-module-card ${isActive ? 'module-card-active' : ''} ${isHighlighted ? 'module-card-highlighted' : ''}`}
+                    className={`stepper-module-card ${isActive ? 'module-card-active' : ''} ${isChanged ? 'module-card-changed' : isHighlighted ? 'module-card-highlighted' : ''}`}
                   >
                     <div className="module-card-header">
                       <div className="module-title-group">
                         <span className="module-step-counter">Milestone {index + 1}</span>
-                        <h3 className="module-title">{mod.title}</h3>
+                        <h3 className="module-title">
+                          {mod.title}
+                          {isChanged && (
+                            <span className="badge badge-warning" style={{ marginLeft: '8px', fontSize: '0.7rem' }}>
+                              ✨ Updated
+                            </span>
+                          )}
+                        </h3>
                       </div>
 
                       <div className="module-badge-wrapper">

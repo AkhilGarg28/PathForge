@@ -13,6 +13,7 @@ import DiagnosticPage from './pages/DiagnosticPage';
 import GeneratingPage from './pages/GeneratingPage';
 import DashboardPage from './pages/DashboardPage';
 import ModuleDetailPage from './pages/ModuleDetailPage';
+import CheckpointPage from './pages/CheckpointPage';
 import SettingsPage from './pages/SettingsPage';
 
 function App() {
@@ -37,6 +38,7 @@ function App() {
             <Route path="/generating" element={<GeneratingPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/module/:moduleId" element={<ModuleDetailPage />} />
+            <Route path="/module/:moduleId/checkpoint" element={<CheckpointPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 

@@ -313,11 +313,11 @@ const ModuleDetailPage = () => {
             })}
           </div>
 
-          {/* Action Bar with Mark as Complete Button */}
+          {/* Action Bar with Take Checkpoint & Mark as Complete */}
           <div className="checklist-footer-bar">
             {!allTasksChecked && isModuleActive && (
               <span className="checklist-help-text">
-                Complete all {resources.length} learning tasks above to enable completion.
+                Complete all {resources.length} learning tasks above to unlock the checkpoint quiz.
               </span>
             )}
 
@@ -327,40 +327,98 @@ const ModuleDetailPage = () => {
                 <span>You have successfully completed this module!</span>
               </div>
             ) : (
-              <Button
-                variant="primary"
-                disabled={!allTasksChecked || !isModuleActive || submitting}
-                loading={submitting}
-                onClick={handleMarkAsComplete}
-                className="btn-mark-complete"
-              >
-                Mark as Complete &amp; Unlock Next &rarr;
-              </Button>
+              <div className="checklist-actions-group" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <Button
+                  variant="primary"
+                  disabled={!allTasksChecked || !isModuleActive}
+                  onClick={() => navigate(`/module/${currentModule.moduleId}/checkpoint`)}
+                  className="btn-take-checkpoint"
+                >
+                  Take Checkpoint &rarr;
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={!allTasksChecked || !isModuleActive || submitting}
+                  loading={submitting}
+                  onClick={handleMarkAsComplete}
+                  className="btn-mark-complete"
+                  title="Complete milestone directly without taking adaptive quiz"
+                >
+                  Mark as Complete
+                </Button>
+              </div>
             )}
           </div>
         </Card>
       </section>
 
-      {/* Checkpoint Quiz Placeholder */}
+      {/* Module Checkpoint Assessment Section */}
       <section className="module-section">
-        <Card className="checkpoint-placeholder-card">
+        <Card className="checkpoint-section-card">
           <div className="checkpoint-header">
             <div>
               <h2 className="checkpoint-title">Module Checkpoint Assessment</h2>
               <p className="checkpoint-subtitle">
-                Quick diagnostic evaluation to verify conceptual mastery of this module.
+                Quick diagnostic evaluation to verify conceptual retention and adaptively tune your remaining milestones.
               </p>
             </div>
-            <span className="badge badge-locked">Coming soon</span>
+            {isModuleComplete ? (
+              <span className="badge badge-complete">Complete ✓</span>
+            ) : allTasksChecked ? (
+              <span className="badge badge-active">Unlocked</span>
+            ) : (
+              <span className="badge badge-locked">Locked</span>
+            )}
           </div>
 
           <div className="checkpoint-body">
-            <p className="checkpoint-description">
-              Checkpoint quizzes are being calibrated to automatically assess milestone retention before unlocking subsequent phases.
-            </p>
-            <Button variant="secondary" disabled className="btn-checkpoint-disabled">
-              Take Checkpoint (Coming soon)
-            </Button>
+            {isModuleComplete ? (
+              <>
+                <p className="checkpoint-description">
+                  You have successfully completed this module assessment.
+                  {currentModule.checkpointScore !== null && currentModule.checkpointScore !== undefined && (
+                    <strong style={{ display: 'block', marginTop: '6px', color: 'var(--color-primary)' }}>
+                      Milestone Score Achieved: {currentModule.checkpointScore}%
+                    </strong>
+                  )}
+                </p>
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate(`/module/${currentModule.moduleId}/checkpoint`)}
+                >
+                  Review Checkpoint &rarr;
+                </Button>
+              </>
+            ) : allTasksChecked ? (
+              <>
+                <p className="checkpoint-description">
+                  All learning tasks checked off! Take this 4-6 question conceptual quiz.
+                  Scoring <strong>80%+</strong> fast-tracks your curriculum by skipping redundant upcoming topics,
+                  while scores under <strong>40%</strong> insert targeted review.
+                </p>
+                <Button
+                  variant="primary"
+                  onClick={() => navigate(`/module/${currentModule.moduleId}/checkpoint`)}
+                  className="btn-take-checkpoint"
+                >
+                  Take Checkpoint Quiz &rarr;
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="checkpoint-description">
+                  Complete all {resources.length} learning checklist tasks above to unlock the conceptual checkpoint quiz.
+                </p>
+                <Button
+                  variant="secondary"
+                  disabled
+                  className="btn-checkpoint-disabled"
+                  title="Complete all tasks above first"
+                >
+                  Take Checkpoint (Locked)
+                </Button>
+              </>
+            )}
           </div>
         </Card>
       </section>
