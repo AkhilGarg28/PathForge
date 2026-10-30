@@ -24,10 +24,8 @@ function App() {
           {/* Public General Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/roles" element={<RolesPage />} />
-          <Route path="/diagnostic" element={<DiagnosticPage />} />
-          <Route path="/generating" element={<GeneratingPage />} />
 
-          {/* Public Only Routes (Redirects logged-in users away to /roles or /dashboard) */}
+          {/* Public Only Routes (Redirects logged-in users away) */}
           <Route element={<PublicRoute />}>
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -35,6 +33,8 @@ function App() {
 
           {/* Protected Routes (Redirects unauthenticated users to /login) */}
           <Route element={<ProtectedRoute />}>
+            <Route path="/diagnostic" element={<DiagnosticPage />} />
+            <Route path="/generating" element={<GeneratingPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/module/:moduleId" element={<ModuleDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
