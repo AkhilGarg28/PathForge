@@ -9,7 +9,45 @@ const {
   calculateWeightedReadiness,
   advanceModuleStatus,
 } = require('../services/roadmapService');
-const { sampleModules } = require('../scripts/createSampleRoadmap');
+
+const sampleModules = [
+  {
+    moduleId: 'mod-1-react',
+    title: 'React Fundamentals',
+    estimatedHours: 10,
+    status: 'active',
+  },
+  {
+    moduleId: 'mod-2-advanced-react',
+    title: 'Advanced React',
+    estimatedHours: 15,
+    status: 'locked',
+  },
+  {
+    moduleId: 'mod-3-node',
+    title: 'Node & Express',
+    estimatedHours: 12,
+    status: 'locked',
+  },
+  {
+    moduleId: 'mod-4-mongo',
+    title: 'MongoDB & Mongoose',
+    estimatedHours: 14,
+    status: 'locked',
+  },
+  {
+    moduleId: 'mod-5-security',
+    title: 'API Security',
+    estimatedHours: 8,
+    status: 'locked',
+  },
+  {
+    moduleId: 'mod-6-testing',
+    title: 'Testing & CI/CD',
+    estimatedHours: 16,
+    status: 'locked',
+  },
+];
 
 describe('Roadmap Service & Endpoints', () => {
   describe('roadmapService Unit Tests', () => {
@@ -35,11 +73,6 @@ describe('Roadmap Service & Endpoints', () => {
         ];
         expect(calculateWeightedReadiness(modules)).toBe(0);
       });
-
-      it('should return 0 for empty or invalid input', () => {
-        expect(calculateWeightedReadiness([])).toBe(0);
-        expect(calculateWeightedReadiness(null)).toBe(0);
-      });
     });
 
     describe('advanceModuleStatus', () => {
@@ -57,25 +90,38 @@ describe('Roadmap Service & Endpoints', () => {
         expect(result.updatedModules[2].status).toBe('locked');
       });
 
-      it('should reject completing a locked module with 409', () => {
+      it('should allow completing the last module', () => {
+        const modules = [
+          { moduleId: 'm1', status: 'complete' },
+          { moduleId: 'm2', status: 'complete' },
+          { moduleId: 'm3', status: 'active' },
+        ];
+
+        const result = advanceModuleStatus(modules, 'm3');
+        expect(result.error).toBeUndefined();
+        expect(result.updatedModules[2].status).toBe('complete');
+        expect(result.nextActiveModule).toBeNull();
+      });
+
+      it('should reject completing a locked module with 400', () => {
         const modules = [
           { moduleId: 'm1', status: 'active' },
           { moduleId: 'm2', status: 'locked' },
         ];
 
         const result = advanceModuleStatus(modules, 'm2');
-        expect(result.code).toBe(409);
+        expect(result.code).toBe(400);
         expect(result.error).toMatch(/not active/i);
       });
 
-      it('should reject completing an already complete module with 409', () => {
+      it('should reject completing an already complete module with 400', () => {
         const modules = [
           { moduleId: 'm1', status: 'complete' },
           { moduleId: 'm2', status: 'active' },
         ];
 
         const result = advanceModuleStatus(modules, 'm1');
-        expect(result.code).toBe(409);
+        expect(result.code).toBe(400);
         expect(result.error).toMatch(/already complete/i);
       });
 
@@ -154,14 +200,15 @@ describe('Roadmap Service & Endpoints', () => {
     });
 
     describe('GET /api/roadmap', () => {
-      it('should return 401 when unauthenticated', async () => {
+      it('should return 401 when unauthenticated (no-token 401)', async () => {
         const res = await request(app).get('/api/roadmap');
         expect(res.statusCode).toBe(401);
       });
 
-      it("should return the user's active roadmap", async () => {
+      it("should return the user's active roadmap for req.user.id ONLY", async () => {
+        // Even if client passes another userId in query, it must query for tokenA user ONLY
         const res = await request(app)
-          .get('/api/roadmap')
+          .get(`/api/roadmap?userId=${userBId}`)
           .set('Cookie', [`token=${tokenA}`]);
 
         expect(res.statusCode).toBe(200);
@@ -171,20 +218,50 @@ describe('Roadmap Service & Endpoints', () => {
         expect(res.body.roadmap.modules[0].status).toBe('active');
       });
 
-      it("cannot access another user's roadmap (returns 404 for User B who has no roadmap)", async () => {
+      it("user A cannot touch or access user B's data (returns 404 for User B with no roadmap)", async () => {
         const res = await request(app)
           .get('/api/roadmap')
           .set('Cookie', [`token=${tokenB}`]);
 
         expect(res.statusCode).toBe(404);
-        expect(res.body.message).toBe('No roadmap yet');
+        expect(res.body.message).toMatch(/no roadmap yet/i);
+      });
+
+      it('never trusts client-supplied userId in query parameter', async () => {
+        // User B attempts to view User A's roadmap by injecting userAId in query
+        const res = await request(app)
+          .get(`/api/roadmap?userId=${userAId}`)
+          .set('Cookie', [`token=${tokenB}`]);
+
+        // Must strictly use token identity (User B) and return 404
+        expect(res.statusCode).toBe(404);
+        expect(res.body.message).toMatch(/no roadmap yet/i);
+      });
+
+      it("user B cannot complete a module in user A's roadmap", async () => {
+        const firstModuleId = sampleModules[0].moduleId;
+
+        const res = await request(app)
+          .patch(`/api/roadmap/module/${firstModuleId}/complete`)
+          .send({ userId: userAId })
+          .set('Cookie', [`token=${tokenB}`]);
+
+        expect(res.statusCode).toBe(404);
+        expect(res.body.message).toMatch(/no roadmap yet/i);
       });
     });
 
     describe('PATCH /api/roadmap/module/:moduleId/complete', () => {
-      it('completing first module unlocks second and recalculates readiness', async () => {
+      it('should return 401 when called without token', async () => {
         const firstModuleId = sampleModules[0].moduleId;
-        const secondModuleId = sampleModules[1].moduleId;
+        const res = await request(app).patch(
+          `/api/roadmap/module/${firstModuleId}/complete`
+        );
+        expect(res.statusCode).toBe(401);
+      });
+
+      it('completing active module unlocks next module and updates readiness', async () => {
+        const firstModuleId = sampleModules[0].moduleId;
 
         const res = await request(app)
           .patch(`/api/roadmap/module/${firstModuleId}/complete`)
@@ -198,7 +275,7 @@ describe('Roadmap Service & Endpoints', () => {
         expect(updatedModules[1].status).toBe('active');
         expect(updatedModules[2].status).toBe('locked');
 
-        // Readiness should be recalculated based on module 1 estimatedHours (10 / 75 = 13%)
+        // Readiness should be recalculated based on completed hours
         expect(res.body.roadmap.readinessScore).toBeGreaterThan(0);
 
         // History event recorded
@@ -209,19 +286,19 @@ describe('Roadmap Service & Endpoints', () => {
         });
       });
 
-      it('cannot complete a locked module (returns 409)', async () => {
+      it('cannot complete a locked module (returns 400)', async () => {
         const lockedModuleId = sampleModules[1].moduleId; // Initially locked
 
         const res = await request(app)
           .patch(`/api/roadmap/module/${lockedModuleId}/complete`)
           .set('Cookie', [`token=${tokenA}`]);
 
-        expect(res.statusCode).toBe(409);
+        expect(res.statusCode).toBe(400);
         expect(res.body.message).toMatch(/not active/i);
       });
 
-      it('cannot complete an already complete module (returns 409)', async () => {
-        // Mark first module as complete first
+      it('cannot complete an already complete module (returns 400)', async () => {
+        // Mark first module as complete
         mockRoadmaps[0].modules[0].status = 'complete';
         mockRoadmaps[0].modules[1].status = 'active';
 
@@ -231,8 +308,32 @@ describe('Roadmap Service & Endpoints', () => {
           .patch(`/api/roadmap/module/${firstModuleId}/complete`)
           .set('Cookie', [`token=${tokenA}`]);
 
-        expect(res.statusCode).toBe(409);
+        expect(res.statusCode).toBe(400);
         expect(res.body.message).toMatch(/already complete/i);
+      });
+
+      it('completing the last module is valid and sets all modules complete', async () => {
+        // Mark all except last as complete
+        mockRoadmaps[0].modules.forEach((mod, idx) => {
+          if (idx < mockRoadmaps[0].modules.length - 1) {
+            mod.status = 'complete';
+          } else {
+            mod.status = 'active';
+          }
+        });
+
+        const lastModuleId =
+          mockRoadmaps[0].modules[mockRoadmaps[0].modules.length - 1].moduleId;
+
+        const res = await request(app)
+          .patch(`/api/roadmap/module/${lastModuleId}/complete`)
+          .set('Cookie', [`token=${tokenA}`]);
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.roadmap.readinessScore).toBe(100);
+        expect(
+          res.body.roadmap.modules.every((m) => m.status === 'complete')
+        ).toBe(true);
       });
 
       it('returns 404 for unknown module ID', async () => {

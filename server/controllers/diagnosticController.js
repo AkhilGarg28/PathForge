@@ -2,11 +2,22 @@ const mongoose = require('mongoose');
 const { z } = require('zod');
 const Role = require('../models/Role');
 const Diagnostic = require('../models/Diagnostic');
+const Roadmap = require('../models/Roadmap');
 const questionService = require('../services/questionService');
-const { scoreDiagnostic, calculateReadiness } = require('../services/scoringService');
+const { scoreDiagnostic } = require('../services/scoringService');
+const { calculateReadiness } = require('../services/readinessService');
+const { generateWithFallback } = require('../services/llmService');
+
+const roleIdParamSchema = z.object({
+  roleId: z
+    .string({ required_error: 'roleId is required' })
+    .regex(/^[0-9a-fA-F]{24}$/, 'Invalid role ID format'),
+});
 
 const submitDiagnosticSchema = z.object({
-  roleId: z.string({ required_error: 'roleId is required' }).min(1),
+  roleId: z
+    .string({ required_error: 'roleId is required' })
+    .regex(/^[0-9a-fA-F]{24}$/, 'Invalid role ID format'),
   answers: z
     .array(
       z.object({
@@ -23,11 +34,18 @@ const submitDiagnosticSchema = z.object({
 
 const getDiagnosticQuestions = async (req, res, next) => {
   try {
-    const { roleId } = req.params;
-
-    if (!roleId || !mongoose.Types.ObjectId.isValid(roleId)) {
-      return res.status(400).json({ message: 'Invalid role ID' });
+    const parseResult = roleIdParamSchema.safeParse(req.params);
+    if (!parseResult.success) {
+      return res.status(400).json({
+        message: parseResult.error.errors[0]?.message || 'Invalid role ID',
+        errors: parseResult.error.errors.map((e) => ({
+          field: e.path.join('.'),
+          message: e.message,
+        })),
+      });
     }
+
+    const { roleId } = parseResult.data;
 
     const role = await Role.findById(roleId);
     if (!role) {
@@ -61,15 +79,14 @@ const submitDiagnostic = async (req, res, next) => {
     if (!parseResult.success) {
       return res.status(400).json({
         message: parseResult.error.errors[0]?.message || 'Invalid submission payload',
-        errors: parseResult.error.errors,
+        errors: parseResult.error.errors.map((e) => ({
+          field: e.path.join('.'),
+          message: e.message,
+        })),
       });
     }
 
     const { roleId, answers } = parseResult.data;
-
-    if (!mongoose.Types.ObjectId.isValid(roleId)) {
-      return res.status(400).json({ message: 'Invalid role ID' });
-    }
 
     const role = await Role.findById(roleId);
     if (!role) {
@@ -119,11 +136,10 @@ const submitDiagnostic = async (req, res, next) => {
       }
     }
 
-    // Score the submitted answers
+    // 1. Score the submitted diagnostic answers
     const dimensionScores = scoreDiagnostic(roleQuestions, answers);
-    const readinessScore = calculateReadiness(dimensionScores);
 
-    // Save diagnostic record
+    // 2. Save diagnostic document
     await Diagnostic.create({
       userId: req.user._id,
       roleId: role._id,
@@ -131,11 +147,39 @@ const submitDiagnostic = async (req, res, next) => {
       takenAt: new Date(),
     });
 
-    // TODO: Roadmap generation will be connected here later
+    // 3. Archive any existing active roadmap
+    await Roadmap.updateMany(
+      { userId: req.user._id, isArchived: false },
+      { isArchived: true }
+    );
 
+    // 4. Generate roadmap (with AI LLM and guaranteed local fallback)
+    const modules = await generateWithFallback(role.name, dimensionScores);
+
+    // 5. Calculate readinessScore from calculateReadiness
+    const readinessScore = calculateReadiness(modules);
+
+    // 6. Save new Roadmap with history entry { event: "roadmap_created" }
+    const roadmap = await Roadmap.create({
+      userId: req.user._id,
+      roleId: role._id,
+      isArchived: false,
+      readinessScore,
+      modules,
+      history: [
+        {
+          date: new Date(),
+          event: 'roadmap_created',
+          readinessScore,
+        },
+      ],
+    });
+
+    // Return dimensionScores, readinessScore, and roadmap
     return res.status(200).json({
       dimensionScores,
       readinessScore,
+      roadmap,
     });
   } catch (error) {
     return next(error);

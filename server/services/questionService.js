@@ -69,6 +69,54 @@ class QuestionService {
     );
   }
 
+  getCheckpointsForModule(moduleObj, roleName) {
+    if (!moduleObj) return [];
+
+    const tags = Array.isArray(moduleObj.resourceTags) ? moduleObj.resourceTags : [];
+    const title = (moduleObj.title || '').toLowerCase();
+    const resources = Array.isArray(moduleObj.resources) ? moduleObj.resources : [];
+
+    // Filter checkpoints by role if roleName provided
+    let candidateCheckpoints = this.checkpoints;
+    if (roleName) {
+      const roleMatches = candidateCheckpoints.filter(
+        (c) => c.roleName.toLowerCase() === roleName.toLowerCase()
+      );
+      if (roleMatches.length > 0) {
+        candidateCheckpoints = roleMatches;
+      }
+    }
+
+    // 1. Try matching tags against dimension
+    for (const tag of tags) {
+      const match = candidateCheckpoints.filter(
+        (c) => c.dimension.toLowerCase() === tag.toLowerCase()
+      );
+      if (match.length > 0) return match;
+    }
+
+    // 2. Try matching resource dimensions
+    for (const res of resources) {
+      if (res.dimension) {
+        const match = candidateCheckpoints.filter(
+          (c) => c.dimension.toLowerCase() === res.dimension.toLowerCase()
+        );
+        if (match.length > 0) return match;
+      }
+    }
+
+    // 3. Try matching title with dimension name
+    for (const c of candidateCheckpoints) {
+      if (title.includes(c.dimension.toLowerCase()) || c.dimension.toLowerCase().includes(title)) {
+        return candidateCheckpoints.filter(
+          (item) => item.dimension.toLowerCase() === c.dimension.toLowerCase()
+        );
+      }
+    }
+
+    return [];
+  }
+
   getResourcesByDimension(dimension, roleName) {
     return this.resources.filter((r) => {
       const matchDim = r.dimension.toLowerCase() === dimension.toLowerCase();

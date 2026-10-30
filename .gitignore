@@ -11,12 +11,16 @@ dist/
 build/
 out/
 
-# Coverage & Logs
+# Coverage, Logs & Test Results
 coverage/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+test-results/
+playwright-report/
+client/test-results/
+client/playwright-report/
 
 # OS & Editor
 .DS_Store
