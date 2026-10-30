@@ -29,9 +29,28 @@ app.use(
 app.use(express.json({ limit: '100kb' }));
 app.use(mongoSanitize);
 app.use(cookieParser());
+// CORS configuration reading CLIENT_URL (supports single or comma-separated origins, normalizes trailing slashes)
+const allowedOrigins = (env.CLIENT_URL || '')
+  .split(',')
+  .map((url) => url.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, smoke tests, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const cleanOrigin = origin.replace(/\/+$/, '');
+      if (
+        allowedOrigins.includes(cleanOrigin) ||
+        allowedOrigins.includes(origin) ||
+        (env.NODE_ENV === 'development' && origin.startsWith('http://localhost:'))
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Not allowed by CORS: ${origin}`));
+    },
     credentials: true,
   })
 );
