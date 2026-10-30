@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import ErrorMessage from '../components/ErrorMessage';
@@ -14,6 +14,10 @@ const DashboardPage = () => {
   const { user } = useAuth();
   const { roadmap, setRoadmap } = useRoadmap();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const highlightedModuleId = location.state?.highlightedModuleId;
+  const highlightedRef = useRef(null);
 
   const [localLoading, setLocalLoading] = useState(!roadmap);
   const [localError, setLocalError] = useState(null);
@@ -31,7 +35,6 @@ const DashboardPage = () => {
       }
     } catch (err) {
       if (err.response?.status === 404) {
-        // No active roadmap yet
         setRoadmap(null);
       } else {
         const msg =
@@ -47,6 +50,13 @@ const DashboardPage = () => {
   useEffect(() => {
     fetchDashboardRoadmap();
   }, [fetchDashboardRoadmap]);
+
+  // Scroll highlighted module into view when navigated from completion
+  useEffect(() => {
+    if (highlightedModuleId && highlightedRef.current) {
+      highlightedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightedModuleId, roadmap]);
 
   // 1. Loading State with Skeletons
   if (localLoading && !roadmap) {
@@ -173,16 +183,20 @@ const DashboardPage = () => {
             const isLocked = mod.status === 'locked';
             const isClickable = isActive || isComplete;
             const targetId = mod.moduleId || mod._id || mod.id;
+            const isHighlighted =
+              highlightedModuleId &&
+              (mod.moduleId === highlightedModuleId || mod._id?.toString() === highlightedModuleId);
 
             return (
               <div
                 key={mod._id || mod.id || index}
-                className={`stepper-item ${isComplete ? 'step-complete' : ''} ${isActive ? 'step-active' : ''} ${isLocked ? 'step-locked' : ''}`}
+                ref={isHighlighted ? highlightedRef : null}
+                className={`stepper-item ${isComplete ? 'step-complete' : ''} ${isActive ? 'step-active' : ''} ${isLocked ? 'step-locked' : ''} ${isHighlighted ? 'step-highlighted' : ''}`}
                 role="listitem"
               >
                 {/* Stepper Node & Connecting Line */}
                 <div className="stepper-rail">
-                  <div className={`stepper-node stepper-node-${mod.status}`}>
+                  <div className={`stepper-node stepper-node-${mod.status} ${isHighlighted ? 'stepper-node-highlighted' : ''}`}>
                     {isComplete && <span className="node-icon">✓</span>}
                     {isActive && <span className="node-icon">▶</span>}
                     {isLocked && <span className="node-icon">🔒</span>}
@@ -204,7 +218,9 @@ const DashboardPage = () => {
                   role={isClickable ? 'link' : 'region'}
                   aria-label={`${mod.title}, status: ${mod.status}`}
                 >
-                  <Card className={`stepper-module-card ${isActive ? 'module-card-active' : ''}`}>
+                  <Card
+                    className={`stepper-module-card ${isActive ? 'module-card-active' : ''} ${isHighlighted ? 'module-card-highlighted' : ''}`}
+                  >
                     <div className="module-card-header">
                       <div className="module-title-group">
                         <span className="module-step-counter">Milestone {index + 1}</span>
