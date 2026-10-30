@@ -1,5 +1,5 @@
 /**
- * Pure scoring functions for PathForge diagnostic assessments
+ * Pure scoring functions for PathForge diagnostic assessments & module checkpoints
  */
 
 /**
@@ -73,7 +73,38 @@ const calculateReadiness = (dimensionScores) => {
   return Math.round(percentage);
 };
 
+/**
+ * Scores checkpoint questions on a 0-100 percentage scale.
+ *
+ * @param {Array<{id: string, correctIndex: number}>} questions
+ * @param {Array<{questionId: string, selectedIndex: number}>} answers
+ * @returns {number} score (0-100)
+ */
+const scoreCheckpoint = (questions, answers) => {
+  if (!Array.isArray(questions) || !Array.isArray(answers)) {
+    throw new Error('Questions and answers must be arrays');
+  }
+
+  if (questions.length === 0) return 100;
+
+  const answerMap = new Map();
+  answers.forEach((ans) => {
+    answerMap.set(ans.questionId, ans.selectedIndex);
+  });
+
+  let correctCount = 0;
+  questions.forEach((q) => {
+    const selected = answerMap.get(q.id);
+    if (selected !== undefined && selected === q.correctIndex) {
+      correctCount += 1;
+    }
+  });
+
+  return Math.round((correctCount / questions.length) * 100);
+};
+
 module.exports = {
   scoreDiagnostic,
   calculateReadiness,
+  scoreCheckpoint,
 };

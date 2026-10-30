@@ -414,6 +414,97 @@ Base URL: `/api`
 
 ---
 
+### 3. Get Module Checkpoint Quiz
+- **Method**: `GET`
+- **Route**: `/api/roadmap/module/:moduleId/checkpoint`
+- **Auth Required**: Yes
+- **URL Parameter**: `moduleId` (string)
+- **Request Body**: None
+- **Rule**:
+  - Finds checkpoint questions in `data/checkpoints.json` matching the module's `resourceTags`, resource dimension, or title keywords.
+  - Strips and **never leaks `correctIndex`**.
+  - If no checkpoint questions match, returns 404 directing the client to use plain completion (`PATCH /api/roadmap/module/:moduleId/complete`).
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "moduleId": "mod-1-react",
+    "moduleTitle": "React Core Foundations",
+    "questions": [
+      {
+        "id": "chk-react-1",
+        "dimension": "Frontend React",
+        "question": "Which hook should you use for imperative focus control?",
+        "options": ["useEffect", "useRef", "useState", "useMemo"]
+      }
+    ]
+  }
+  ```
+- **Error Cases**:
+  - `401 Unauthorized`: Unauthenticated.
+  - `404 Not Found`: `{ "message": "No checkpoint available for this module. Use standard module completion." }` or `{ "message": "Module not found in active roadmap" }`.
+
+---
+
+### 4. Submit Module Checkpoint Quiz & Adaptive Re-plan
+- **Method**: `POST`
+- **Route**: `/api/roadmap/module/:moduleId/checkpoint`
+- **Auth Required**: Yes
+- **URL Parameter**: `moduleId` (string)
+- **Request Body**:
+  ```json
+  {
+    "answers": [
+      {
+        "questionId": "chk-react-1",
+        "selectedIndex": 1
+      }
+    ]
+  }
+  ```
+- **Validation**:
+  - `answers` must be an array of `{ questionId, selectedIndex }` matching the checkpoint questions for the module.
+  - Target module must currently have `status: 'active'`.
+- **Adaptive Re-planning Rules**:
+  - **Completed modules are NEVER changed or removed.**
+  - **Score >= 80 (Fast Track)**:
+    - Marks current module as `complete`.
+    - Asks LLM to compress remaining modules (removes at most one redundant future module). On LLM failure or timeout, deterministic fallback safely removes at most one redundant future module.
+    - Unlocks the next remaining module (`status: 'active'`).
+  - **Score < 40 (Needs Reinforcement)**:
+    - Current module remains `active` (not complete).
+    - Inserts one remedial module focused on the same dimension (estimated 3–6 hours, status `locked`) immediately after the current module.
+  - **Score 40 to 79 (Standard Progress)**:
+    - Marks current module as `complete`.
+    - Unlocks next locked module to `active`. No curriculum changes.
+  - Stores `checkpointScore` on the module.
+  - Appends history entry: `{ event: "replan", reason, readinessScore }`.
+  - Recomputes overall `readinessScore`.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "score": 85,
+    "changes": [
+      {
+        "type": "removed",
+        "moduleId": "mod-5-adv",
+        "title": "Advanced Redux Toolkit"
+      }
+    ],
+    "roadmap": {
+      "id": "67222384a1e944df88e998c3",
+      "readinessScore": 42,
+      "modules": [],
+      "history": []
+    }
+  }
+  ```
+- **Error Cases**:
+  - `400 Bad Request`: Module is not active (`locked` or already `complete`), invalid answers format, missing questions.
+  - `401 Unauthorized`: Unauthenticated.
+  - `404 Not Found`: Module not found in active roadmap or no checkpoint questions exist.
+
+---
+
 ## Health Check (`/api/health`)
 - **Method**: `GET`
 - **Route**: `/api/health`

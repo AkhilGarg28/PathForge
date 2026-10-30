@@ -81,6 +81,10 @@ const historySchema = new mongoose.Schema(
       min: [0, 'Readiness score cannot be less than 0'],
       max: [100, 'Readiness score cannot exceed 100'],
     },
+    reason: {
+      type: String,
+      default: null,
+    },
   },
   { _id: false }
 );
