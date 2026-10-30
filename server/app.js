@@ -14,6 +14,12 @@ import roleRoutes from './routes/roleRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import diagnosticRoutes from './routes/diagnosticRoutes.js';
 import roadmapRoutes from './routes/roadmapRoutes.js';
+import onboardingRoutes from './routes/onboardingRoutes.js';
+import readinessRoutes from './routes/readinessRoutes.js';
+import personalizedRoadmapRoutes from './routes/personalizedRoadmapRoutes.js';
+import weeklyQuizRoutes from './routes/weeklyQuizRoutes.js';
+import aiTutorRoutes from './routes/aiTutorRoutes.js';
+import analyticsRoutes from './routes/analyticsRoutes.js';
 
 const app = express();
 
@@ -79,6 +85,14 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/diagnostic', diagnosticRoutes);
 app.use('/api/roadmap', roadmapRoutes);
+
+// AI-Powered Personalized Learning & Adaptive Assessment Routes
+app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/readiness', readinessRoutes);
+app.use('/api/personalized-roadmap', personalizedRoadmapRoutes);
+app.use('/api/weekly-quiz', weeklyQuizRoutes);
+app.use('/api/ai-tutor', aiTutorRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // 404 Route Catch-all
 app.use(notFound);

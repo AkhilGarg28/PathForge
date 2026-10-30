@@ -69,6 +69,30 @@ export function Navbar({ className = '' }) {
           {user ? (
             <>
               <Link
+                to="/personalized-dashboard"
+                style={{
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: 'var(--color-primary)',
+                  padding: 'var(--space-0-5) var(--space-1)'
+                }}
+              >
+                12-Week Roadmap
+              </Link>
+
+              <Link
+                to="/onboarding"
+                style={{
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: 'var(--color-neutral-700)',
+                  padding: 'var(--space-0-5) var(--space-1)'
+                }}
+              >
+                Onboarding
+              </Link>
+
+              <Link
                 to="/dashboard"
                 style={{
                   fontSize: '0.875rem',

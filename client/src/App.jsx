@@ -43,6 +43,23 @@ const StyleguidePage = lazy(() =>
   import('./pages/StyleguidePage.jsx').then((m) => ({ default: m.StyleguidePage }))
 );
 
+// AI-Powered Personalized Learning & Adaptive Assessment Pages
+const OnboardingPage = lazy(() =>
+  import('./pages/OnboardingPage.jsx').then((m) => ({ default: m.OnboardingPage }))
+);
+const ReadinessAssessmentPage = lazy(() =>
+  import('./pages/ReadinessAssessmentPage.jsx').then((m) => ({ default: m.ReadinessAssessmentPage }))
+);
+const ReadinessReportPage = lazy(() =>
+  import('./pages/ReadinessReportPage.jsx').then((m) => ({ default: m.ReadinessReportPage }))
+);
+const PersonalizedDashboardPage = lazy(() =>
+  import('./pages/PersonalizedDashboardPage.jsx').then((m) => ({ default: m.PersonalizedDashboardPage }))
+);
+const WeeklyQuizPage = lazy(() =>
+  import('./pages/WeeklyQuizPage.jsx').then((m) => ({ default: m.WeeklyQuizPage }))
+);
+
 function RouteFallback() {
   return (
     <div
@@ -79,12 +96,39 @@ export function App() {
                 <Route path="/styleguide" element={<StyleguidePage />} />
               )}
 
-              {/* Protected Routes: Authenticated User (Can select role) */}
+              {/* Protected Routes: Authenticated User (Can select role / onboard) */}
               <Route
                 path="/roles"
                 element={
                   <ProtectedRoute requireRole={false}>
                     <RoleSelectionPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/onboarding"
+                element={
+                  <ProtectedRoute requireRole={false}>
+                    <OnboardingPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/readiness"
+                element={
+                  <ProtectedRoute requireRole={false}>
+                    <ReadinessAssessmentPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/readiness/report"
+                element={
+                  <ProtectedRoute requireRole={false}>
+                    <ReadinessReportPage />
                   </ProtectedRoute>
                 }
               />
@@ -113,6 +157,24 @@ export function App() {
                 element={
                   <ProtectedRoute requireRole={true}>
                     <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/personalized-dashboard"
+                element={
+                  <ProtectedRoute requireRole={false}>
+                    <PersonalizedDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/weekly-quiz/:weekNumber"
+                element={
+                  <ProtectedRoute requireRole={false}>
+                    <WeeklyQuizPage />
                   </ProtectedRoute>
                 }
               />
