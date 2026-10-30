@@ -1,0 +1,314 @@
+[
+  {
+    "id": "mern-q1",
+    "roleName": "MERN Developer",
+    "dimension": "Frontend React",
+    "question": "What is the primary purpose of useEffect in React functional components?",
+    "options": [
+      "To manage global application state",
+      "To perform side effects such as data fetching and DOM manipulation",
+      "To compile JSX into browser-compatible JavaScript",
+      "To directly mutate the virtual DOM tree"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "mern-q2",
+    "roleName": "MERN Developer",
+    "dimension": "Frontend React",
+    "question": "How does React Fiber improve UI rendering performance?",
+    "options": [
+      "By replacing JavaScript with WebAssembly for all rendering",
+      "By enabling incremental rendering and work prioritization",
+      "By eliminating the need for component state",
+      "By caching all HTTP responses automatically"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "mern-q3",
+    "roleName": "MERN Developer",
+    "dimension": "Node & Express",
+    "question": "What is the role of middleware in an Express.js application?",
+    "options": [
+      "To define database table schemas exclusively",
+      "To process requests and responses before reaching route handlers or termination",
+      "To compile server-side TypeScript to JavaScript",
+      "To handle multi-threading across CPU cores natively"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "mern-q4",
+    "roleName": "MERN Developer",
+    "dimension": "Node & Express",
+    "question": "In the Node.js event loop, which phase executes callbacks scheduled by process.nextTick()?",
+    "options": [
+      "Timers phase",
+      "I/O polling phase",
+      "Microtask queue immediately after the current operation finishes",
+      "Check phase"
+    ],
+    "correctIndex": 2
+  },
+  {
+    "id": "mern-q5",
+    "roleName": "MERN Developer",
+    "dimension": "MongoDB & Mongoose",
+    "question": "What is the advantage of using compound indexes in MongoDB?",
+    "options": [
+      "They compress the collection data to zero bytes",
+      "They allow efficient querying on multiple fields specified in the index prefix",
+      "They eliminate the need for primary keys",
+      "They automatically shard collections across clusters"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "mern-q6",
+    "roleName": "MERN Developer",
+    "dimension": "MongoDB & Mongoose",
+    "question": "In Mongoose, what does calling populate() on a query accomplish?",
+    "options": [
+      "It seeds the collection with random dummy records",
+      "It automatically fills in referenced documents from other collections",
+      "It verifies schema validation rules synchronously",
+      "It creates database backups on disk"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "mern-q7",
+    "roleName": "MERN Developer",
+    "dimension": "API Design & Security",
+    "question": "Why should sensitive JWT tokens be stored in httpOnly cookies rather than localStorage?",
+    "options": [
+      "httpOnly cookies have infinite expiration time",
+      "httpOnly cookies prevent access via client-side JavaScript, mitigating XSS attacks",
+      "localStorage cannot store strings larger than 10 bytes",
+      "Browsers automatically encrypt localStorage tokens with RSA"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "mern-q8",
+    "roleName": "MERN Developer",
+    "dimension": "API Design & Security",
+    "question": "Which HTTP status code is most appropriate when a requested resource cannot be found?",
+    "options": [
+      "400 Bad Request",
+      "401 Unauthorized",
+      "403 Forbidden",
+      "404 Not Found"
+    ],
+    "correctIndex": 3
+  },
+  {
+    "id": "mern-q9",
+    "roleName": "MERN Developer",
+    "dimension": "State Management",
+    "question": "When is it recommended to use Context API instead of prop drilling in React?",
+    "options": [
+      "For state that needs to be accessed by many components at different nesting levels",
+      "Only when dealing with asynchronous API calls",
+      "Exclusively for animations and CSS transitions",
+      "Whenever a component has more than one state variable"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "mern-q10",
+    "roleName": "MERN Developer",
+    "dimension": "State Management",
+    "question": "In Redux Toolkit, what does createSlice primarily generate for you?",
+    "options": [
+      "A complete HTTP web server",
+      "Action creators and reducer functions based on your state mutations",
+      "A database schema file",
+      "Unit test files"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "mern-q11",
+    "roleName": "MERN Developer",
+    "dimension": "Testing & Deployment",
+    "question": "What is the primary benefit of using Supertest alongside Jest for Node.js testing?",
+    "options": [
+      "It automatically writes frontend UI components",
+      "It allows testing HTTP endpoints without having to bind to a physical network port",
+      "It replaces the need for MongoDB in all environments",
+      "It acts as a load balancer in production"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "mern-q12",
+    "roleName": "MERN Developer",
+    "dimension": "Testing & Deployment",
+    "question": "What is a major advantage of containerizing a MERN application with Docker?",
+    "options": [
+      "It eliminates all application bugs automatically",
+      "It ensures environment parity across development, staging, and production",
+      "It converts JavaScript code to C++ for faster execution",
+      "It reduces code size by 99%"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "da-q1",
+    "roleName": "Data Analyst",
+    "dimension": "SQL & Databases",
+    "question": "What is the key difference between INNER JOIN and LEFT JOIN in SQL?",
+    "options": [
+      "INNER JOIN returns all rows from the left table regardless of matches",
+      "INNER JOIN returns only rows with matching keys in both tables, while LEFT JOIN includes all rows from the left table",
+      "LEFT JOIN only works on numerical primary keys",
+      "INNER JOIN deletes non-matching rows permanently"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "da-q2",
+    "roleName": "Data Analyst",
+    "dimension": "SQL & Databases",
+    "question": "Which SQL clause is used to filter rows after an aggregation like COUNT or SUM?",
+    "options": [
+      "WHERE",
+      "HAVING",
+      "ORDER BY",
+      "GROUP BY"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "da-q3",
+    "roleName": "Data Analyst",
+    "dimension": "Python & Pandas",
+    "question": "What is the primary function of df.groupby() in Pandas?",
+    "options": [
+      "To sort columns alphabetically",
+      "To split data into groups based on criteria, apply functions, and combine results",
+      "To drop all rows containing null values",
+      "To export DataFrame to a CSV file"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "da-q4",
+    "roleName": "Data Analyst",
+    "dimension": "Python & Pandas",
+    "question": "Which Pandas method is best suited for reshaping data from wide format to long format?",
+    "options": [
+      "df.pivot()",
+      "df.melt()",
+      "df.head()",
+      "df.describe()"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "da-q5",
+    "roleName": "Data Analyst",
+    "dimension": "Data Visualization",
+    "question": "Which chart type is most appropriate for visualizing the distribution of a continuous numerical variable?",
+    "options": [
+      "Pie chart",
+      "Histogram",
+      "Stacked bar chart",
+      "Radar chart"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "da-q6",
+    "roleName": "Data Analyst",
+    "dimension": "Data Visualization",
+    "question": "When comparing correlation between two continuous variables, which visual plot is most effective?",
+    "options": [
+      "Scatter plot",
+      "Donut chart",
+      "Treemap",
+      "Gantt chart"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "da-q7",
+    "roleName": "Data Analyst",
+    "dimension": "Statistical Analysis",
+    "question": "What measure of central tendency is least sensitive to extreme outliers?",
+    "options": [
+      "Mean",
+      "Median",
+      "Standard Deviation",
+      "Variance"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "da-q8",
+    "roleName": "Data Analyst",
+    "dimension": "Statistical Analysis",
+    "question": "What does a p-value less than 0.05 typically indicate in hypothesis testing?",
+    "options": [
+      "The sample size is too small",
+      "Statistically significant evidence to reject the null hypothesis",
+      "The experiment must be discarded",
+      "The alternative hypothesis is proven 100% false"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "da-q9",
+    "roleName": "Data Analyst",
+    "dimension": "Data Cleaning",
+    "question": "What is the risk of simply imputing missing numeric data with the column mean?",
+    "options": [
+      "It will crash the Python interpreter",
+      "It artificially reduces variance and can bias parameter estimates",
+      "It changes data types to strings",
+      "It duplicates all existing records"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "da-q10",
+    "roleName": "Data Analyst",
+    "dimension": "Data Cleaning",
+    "question": "Which technique is commonly used to detect univariate outliers using quartiles?",
+    "options": [
+      "Interquartile Range (IQR) rule (1.5 * IQR)",
+      "K-Means clustering with 1 centroid",
+      "One-hot encoding",
+      "Fast Fourier Transform"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "da-q11",
+    "roleName": "Data Analyst",
+    "dimension": "Business Intelligence",
+    "question": "What is the primary purpose of a Star Schema in a data warehouse?",
+    "options": [
+      "To optimize queries for read-heavy reporting and analytics",
+      "To achieve third normal form (3NF) and avoid data duplication",
+      "To store audio and video files efficiently",
+      "To replace relational databases with flat text files"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "da-q12",
+    "roleName": "Data Analyst",
+    "dimension": "Business Intelligence",
+    "question": "What distinguishes a Dimension table from a Fact table in analytical modeling?",
+    "options": [
+      "Fact tables contain descriptive textual attributes, while Dimension tables contain metrics",
+      "Fact tables contain quantitative metrics and foreign keys, while Dimension tables provide context and attributes",
+      "Dimension tables cannot be queried using SQL",
+      "Fact tables are always cached entirely in browser memory"
+    ],
+    "correctIndex": 1
+  }
+]

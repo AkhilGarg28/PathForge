@@ -1,0 +1,314 @@
+[
+  {
+    "id": "chk-react-1",
+    "roleName": "MERN Developer",
+    "dimension": "Frontend React",
+    "question": "What is the primary benefit of React.memo?",
+    "options": [
+      "Prevents re-rendering if component props have not changed",
+      "Caches API call results indefinitely",
+      "Compresses CSS modules",
+      "Converts state to persistent local storage"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-react-2",
+    "roleName": "MERN Developer",
+    "dimension": "Frontend React",
+    "question": "Why should keys passed to list elements in React be stable and unique?",
+    "options": [
+      "To style list items with unique colors",
+      "To help React identify which items have changed, been added, or removed during reconciliation",
+      "To satisfy browser HTML5 validation standards",
+      "To automatically sort the list alphabetically"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "chk-react-3",
+    "roleName": "MERN Developer",
+    "dimension": "Frontend React",
+    "question": "When should you use useCallback hook?",
+    "options": [
+      "To memoize a callback function instance between renders to prevent unnecessary re-renders of optimized child components",
+      "To trigger a synchronous page refresh",
+      "To execute asynchronous database migrations",
+      "To convert class components into functional components"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-react-4",
+    "roleName": "MERN Developer",
+    "dimension": "Frontend React",
+    "question": "What happens if you update state directly without using the setState or dispatcher function?",
+    "options": [
+      "React throws a compile-time syntax error",
+      "React will not trigger a re-render and the UI will fall out of sync with state",
+      "The browser will immediately reload the window",
+      "The operating system restarts"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "chk-node-1",
+    "roleName": "MERN Developer",
+    "dimension": "Node & Express",
+    "question": "How do you handle asynchronous errors in Express 4 without unhandled promise rejections?",
+    "options": [
+      "Wrap async logic in try/catch and pass the error to next(err)",
+      "Set process.exit(0) inside the error handler",
+      "Call res.send() multiple times",
+      "Disable the Node.js event loop"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-node-2",
+    "roleName": "MERN Developer",
+    "dimension": "Node & Express",
+    "question": "What is the function of the Buffer class in Node.js?",
+    "options": [
+      "To manage UI components",
+      "To handle raw binary data directly in memory",
+      "To compress images before sending to client",
+      "To encrypt passwords using MD5"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "chk-node-3",
+    "roleName": "MERN Developer",
+    "dimension": "Node & Express",
+    "question": "What does express.json({ limit: '100kb' }) prevent?",
+    "options": [
+      "Slow network speeds",
+      "Denial of Service (DoS) attacks caused by memory exhaustion from large request payloads",
+      "SQL injections in URL parameters",
+      "CSS parsing bugs"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "chk-node-4",
+    "roleName": "MERN Developer",
+    "dimension": "Node & Express",
+    "question": "Why is clustering used in production Node.js servers?",
+    "options": [
+      "To spawn multiple worker processes sharing server ports to leverage multi-core CPUs",
+      "To minify JavaScript files on the fly",
+      "To replace Nginx as a reverse proxy",
+      "To convert HTTP/1.1 traffic into FTP"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-mongo-1",
+    "roleName": "MERN Developer",
+    "dimension": "MongoDB & Mongoose",
+    "question": "What is the purpose of MongoDB aggregation pipelines?",
+    "options": [
+      "To transform and filter documents through sequential multi-stage operations",
+      "To create React components dynamically",
+      "To convert MongoDB into a relational PostgreSQL database",
+      "To execute SQL queries directly against BSON"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-mongo-2",
+    "roleName": "MERN Developer",
+    "dimension": "MongoDB & Mongoose",
+    "question": "Which operator performs an atomic increment of an integer field in MongoDB?",
+    "options": [
+      "$add",
+      "$inc",
+      "$push",
+      "$set"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "chk-mongo-3",
+    "roleName": "MERN Developer",
+    "dimension": "MongoDB & Mongoose",
+    "question": "What does setting lean() on a Mongoose query do?",
+    "options": [
+      "Returns plain JavaScript objects instead of heavy Mongoose Documents, boosting read performance",
+      "Deletes empty fields from the database",
+      "Truncates string values to 10 characters",
+      "Validates document schemas twice"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-mongo-4",
+    "roleName": "MERN Developer",
+    "dimension": "MongoDB & Mongoose",
+    "question": "What index type should you create to automatically remove documents after a certain duration?",
+    "options": [
+      "Text index",
+      "TTL (Time-To-Live) index",
+      "2dsphere index",
+      "Hashed index"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "chk-sec-1",
+    "roleName": "MERN Developer",
+    "dimension": "API Design & Security",
+    "question": "What is the purpose of the Helmet middleware in Express?",
+    "options": [
+      "It secures Express apps by setting various HTTP security headers",
+      "It minifies JSON response payloads",
+      "It automatically runs penetration testing on endpoints",
+      "It protects against physical server theft"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-sec-2",
+    "roleName": "MERN Developer",
+    "dimension": "API Design & Security",
+    "question": "What does CORS (Cross-Origin Resource Sharing) protect against?",
+    "options": [
+      "Malicious scripts on one origin making unauthorized requests to a different origin on behalf of the user",
+      "SQL injection inside database queries",
+      "Hard drive crashes on the host machine",
+      "High CPU utilization during peak traffic"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-sec-3",
+    "roleName": "MERN Developer",
+    "dimension": "API Design & Security",
+    "question": "Why is bcrypt preferred over SHA-256 for password hashing?",
+    "options": [
+      "bcrypt produces shorter hash strings",
+      "bcrypt is intentionally computationally slow and incorporates salt and work factor to resist brute-force attacks",
+      "SHA-256 is deprecated and cannot be run on modern computers",
+      "bcrypt can be decrypted without the secret key"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "chk-sec-4",
+    "roleName": "MERN Developer",
+    "dimension": "API Design & Security",
+    "question": "What is the main advantage of RESTful idempotent methods like PUT and DELETE?",
+    "options": [
+      "Repeating the request multiple times produces the same system state as making it once",
+      "They run 10x faster than POST requests",
+      "They can only be sent over HTTP, not HTTPS",
+      "They do not require authentication"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-state-1",
+    "roleName": "MERN Developer",
+    "dimension": "State Management",
+    "question": "Why must reducers in Redux remain pure functions?",
+    "options": [
+      "To allow predictable state transitions, time-travel debugging, and prevent side-effect bugs",
+      "To make Redux compatible with CSS frameworks",
+      "Because impure functions cannot be compiled by Babel",
+      "To enable multi-threaded execution in JavaScript"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-state-2",
+    "roleName": "MERN Developer",
+    "dimension": "State Management",
+    "question": "In React Query / TanStack Query, what is the primary benefit of query caching?",
+    "options": [
+      "Deduplicating identical requests, providing instant cached data, and synchronizing background refetches",
+      "Eliminating the need for backend APIs",
+      "Storing UI component HTML in localStorage",
+      "Auto-generating mock responses for unit tests"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-state-3",
+    "roleName": "MERN Developer",
+    "dimension": "State Management",
+    "question": "In Zustand, how is state updated?",
+    "options": [
+      "By mutating global variables directly",
+      "Via the set function which merges or replaces state immutably",
+      "By dispatching XML strings to a web worker",
+      "By rewriting the index.html file"
+    ],
+    "correctIndex": 1
+  },
+  {
+    "id": "chk-state-4",
+    "roleName": "MERN Developer",
+    "dimension": "State Management",
+    "question": "What problem does state colocation solve?",
+    "options": [
+      "Keeping state as close to where it is used as possible prevents unnecessary re-renders in higher-level components",
+      "It combines frontend and backend code into one file",
+      "It hosts databases and web servers on the same server rack",
+      "It merges CSS and JavaScript into a single bundle"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-test-1",
+    "roleName": "MERN Developer",
+    "dimension": "Testing & Deployment",
+    "question": "What is the difference between a unit test and an integration test?",
+    "options": [
+      "Unit tests check individual isolated functions or modules, while integration tests verify multiple components working together",
+      "Unit tests are executed by humans manually, while integration tests are run by robots",
+      "Unit tests can only test HTML, while integration tests test databases",
+      "There is no difference"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-test-2",
+    "roleName": "MERN Developer",
+    "dimension": "Testing & Deployment",
+    "question": "What does a reverse proxy like Nginx provide in front of a Node.js application?",
+    "options": [
+      "SSL termination, static file caching, load balancing, and connection handling",
+      "Automatic code debugging and error correction",
+      "Direct execution of MongoDB queries",
+      "CSS pre-processing"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-test-3",
+    "roleName": "MERN Developer",
+    "dimension": "Testing & Deployment",
+    "question": "In continuous integration (CI) pipelines, what should happen when a test suite fails?",
+    "options": [
+      "The deployment pipeline should halt and block the merge or production release",
+      "The tests should automatically be deleted from git",
+      "The server should be shut down permanently",
+      "The pipeline should ignore the failure and deploy anyway"
+    ],
+    "correctIndex": 0
+  },
+  {
+    "id": "chk-test-4",
+    "roleName": "MERN Developer",
+    "dimension": "Testing & Deployment",
+    "question": "Why is PM2 widely used for running Node.js apps in virtual machines?",
+    "options": [
+      "It acts as a process manager providing auto-restarts, cluster mode, and zero-downtime reloads",
+      "It replaces the need for React in the frontend",
+      "It compiles Node.js to machine code",
+      "It automatically generates SQL schemas"
+    ],
+    "correctIndex": 0
+  }
+]

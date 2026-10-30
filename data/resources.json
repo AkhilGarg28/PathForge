@@ -1,0 +1,254 @@
+[
+  {
+    "title": "React Official Documentation: Managing State",
+    "url": "https://react.dev/learn/managing-state",
+    "type": "docs",
+    "dimension": "Frontend React",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "React Component Lifecycle & Hooks Deep Dive",
+    "url": "https://developer.mozilla.org/en-US/docs/Learn/Tools_and_testing/Client-side_JavaScript_frameworks/React_hooks",
+    "type": "article",
+    "dimension": "Frontend React",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Building Modern UIs with React 18 & Fiber",
+    "url": "https://www.youtube.com/watch?v=sample-react-18",
+    "type": "video",
+    "dimension": "Frontend React",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Node.js Official Documentation & Event Loop Architecture",
+    "url": "https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick",
+    "type": "docs",
+    "dimension": "Node & Express",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Building Production RESTful APIs with Express",
+    "url": "https://expressjs.com/en/starter/installing.html",
+    "type": "article",
+    "dimension": "Node & Express",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Mastering Node.js Streams & Asynchronous Patterns",
+    "url": "https://www.youtube.com/watch?v=sample-nodejs-streams",
+    "type": "video",
+    "dimension": "Node & Express",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "MongoDB Manual: Indexes & Performance Optimization",
+    "url": "https://www.mongodb.com/docs/manual/indexes/",
+    "type": "docs",
+    "dimension": "MongoDB & Mongoose",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Mongoose Schema Design and Aggregation Pipelines",
+    "url": "https://mongoosejs.com/docs/guide.html",
+    "type": "article",
+    "dimension": "MongoDB & Mongoose",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "MongoDB Schema Anti-patterns and Index Tuning",
+    "url": "https://www.youtube.com/watch?v=sample-mongodb-patterns",
+    "type": "video",
+    "dimension": "MongoDB & Mongoose",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "OWASP API Security Top 10 Guidelines",
+    "url": "https://owasp.org/www-project-api-security/",
+    "type": "docs",
+    "dimension": "API Design & Security",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Securing REST APIs with JWT & Secure Cookies",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html",
+    "type": "article",
+    "dimension": "API Design & Security",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Web Security Essentials: Helmet, CORS, and Rate Limiting",
+    "url": "https://www.youtube.com/watch?v=sample-api-security",
+    "type": "video",
+    "dimension": "API Design & Security",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Redux Toolkit Official Documentation",
+    "url": "https://redux-toolkit.js.org/introduction/getting-started",
+    "type": "docs",
+    "dimension": "State Management",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Comparing Global State: Zustand, Context, and Redux",
+    "url": "https://tkdodo.eu/blog/practical-react-query",
+    "type": "article",
+    "dimension": "State Management",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Modern State Architecture in Large Scale React Apps",
+    "url": "https://www.youtube.com/watch?v=sample-state-architecture",
+    "type": "video",
+    "dimension": "State Management",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Jest & Supertest Integration Testing Guide",
+    "url": "https://jestjs.io/docs/getting-started",
+    "type": "docs",
+    "dimension": "Testing & Deployment",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "Deploying MERN Applications with Docker and Nginx",
+    "url": "https://docs.docker.com/get-started/",
+    "type": "article",
+    "dimension": "Testing & Deployment",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "End-to-End CI/CD Pipelines with GitHub Actions",
+    "url": "https://www.youtube.com/watch?v=sample-cicd-github-actions",
+    "type": "video",
+    "dimension": "Testing & Deployment",
+    "roleName": "MERN Developer"
+  },
+  {
+    "title": "PostgreSQL & SQL Queries Reference",
+    "url": "https://www.postgresql.org/docs/current/queries.html",
+    "type": "docs",
+    "dimension": "SQL & Databases",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Mastering Advanced SQL Joins and Window Functions",
+    "url": "https://mode.com/sql-tutorial/sql-window-functions/",
+    "type": "article",
+    "dimension": "SQL & Databases",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "SQL for Analytics Crash Course",
+    "url": "https://www.youtube.com/watch?v=sample-sql-analytics",
+    "type": "video",
+    "dimension": "SQL & Databases",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Pandas Official API Documentation",
+    "url": "https://pandas.pydata.org/docs/user_guide/index.html",
+    "type": "docs",
+    "dimension": "Python & Pandas",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Data Manipulation with Python and Pandas",
+    "url": "https://realpython.com/pandas-dataframe/",
+    "type": "article",
+    "dimension": "Python & Pandas",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Fast-Track Data Analysis with Pandas & NumPy",
+    "url": "https://www.youtube.com/watch?v=sample-pandas-crash-course",
+    "type": "video",
+    "dimension": "Python & Pandas",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Seaborn & Matplotlib Visualization Documentation",
+    "url": "https://seaborn.pydata.org/tutorial.html",
+    "type": "docs",
+    "dimension": "Data Visualization",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Storytelling with Data: Chart Design Principles",
+    "url": "https://www.storytellingwithdata.com/chart-guide",
+    "type": "article",
+    "dimension": "Data Visualization",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Interactive Dashboards with Plotly & Streamlit",
+    "url": "https://www.youtube.com/watch?v=sample-streamlit-dashboards",
+    "type": "video",
+    "dimension": "Data Visualization",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Statistical Methods for Data Science Reference",
+    "url": "https://docs.scipy.org/doc/scipy/tutorial/stats.html",
+    "type": "docs",
+    "dimension": "Statistical Analysis",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Hypothesis Testing and A/B Test Interpretation",
+    "url": "https://towardsdatascience.com/hypothesis-testing-explained",
+    "type": "article",
+    "dimension": "Statistical Analysis",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Practical Statistics for Analysts",
+    "url": "https://www.youtube.com/watch?v=sample-practical-statistics",
+    "type": "video",
+    "dimension": "Statistical Analysis",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Data Cleaning & Preprocessing Best Practices",
+    "url": "https://scikit-learn.org/stable/modules/preprocessing.html",
+    "type": "docs",
+    "dimension": "Data Cleaning",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Detecting and Imputing Missing Values in Tabular Data",
+    "url": "https://realpython.com/python-data-cleaning-numpy-pandas/",
+    "type": "article",
+    "dimension": "Data Cleaning",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Automating Data Cleaning Pipelines in Python",
+    "url": "https://www.youtube.com/watch?v=sample-data-cleaning",
+    "type": "video",
+    "dimension": "Data Cleaning",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Dimensional Modeling and Star Schema Architecture",
+    "url": "https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/",
+    "type": "docs",
+    "dimension": "Business Intelligence",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Building Executive BI Metrics and KPI Dashboards",
+    "url": "https://powerbi.microsoft.com/en-us/learning/",
+    "type": "article",
+    "dimension": "Business Intelligence",
+    "roleName": "Data Analyst"
+  },
+  {
+    "title": "Enterprise Data Warehousing & Modern BI Stacks",
+    "url": "https://www.youtube.com/watch?v=sample-bi-data-warehouse",
+    "type": "video",
+    "dimension": "Business Intelligence",
+    "roleName": "Data Analyst"
+  }
+]
