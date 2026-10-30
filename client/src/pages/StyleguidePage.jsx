@@ -1,402 +1,421 @@
-import { useState } from 'react';
-import { usePageTitle } from '../hooks/usePageTitle.js';
-import {
-  Button,
-  Input,
-  Card,
-  ProgressBar,
-  StatusCircle,
-  StepperModule,
-  ReadinessScore,
-  QuizQuestion,
-  Skeleton,
-  EmptyState,
-  ErrorState,
-  useToast,
-} from '../components/index.js';
-import './StyleguidePage.css';
+import React, { useState } from 'react';
+import { Layout } from '../components/Layout.jsx';
+import { Button } from '../components/Button.jsx';
+import { Input } from '../components/Input.jsx';
+import { Card } from '../components/Card.jsx';
+import { Spinner } from '../components/Spinner.jsx';
+import { Skeleton } from '../components/Skeleton.jsx';
+import { ProgressBar } from '../components/ProgressBar.jsx';
+import { ReadinessScore } from '../components/ReadinessScore.jsx';
+import { StatusCircle } from '../components/StatusCircle.jsx';
+import { StepperModule } from '../components/StepperModule.jsx';
+import { QuizQuestion } from '../components/QuizQuestion.jsx';
+import { EmptyState } from '../components/EmptyState.jsx';
+import { ErrorState } from '../components/ErrorState.jsx';
+import { useToast } from '../hooks/useToast.js';
 
-export default function StyleguidePage() {
+export function StyleguidePage() {
   const toast = useToast();
-  usePageTitle('Design System Styleguide');
 
-  // Interactive component states for testing
-  const [inputValue, setInputValue] = useState('');
-  const [passwordValue, setPasswordValue] = useState('SuperSecret123!');
+  const [inputVal, setInputVal] = useState('Sample text');
   const [quizSelection, setQuizSelection] = useState(1);
-  const [readinessValue, setReadinessValue] = useState(65);
-  const [clickedModule, setClickedModule] = useState(null);
 
-  const sampleQuizOptions = [
-    'No familiarity or background experience',
-    'Understand fundamental theory, basic practical knowledge',
-    'Comfortable implementing production features with docs',
-    'Advanced mastery, optimization, and system design capability',
-  ];
+  const sampleQuestion = {
+    id: 'sg-q1',
+    dimension: 'javascript',
+    question:
+      'Which method determines whether an array includes a certain value among its entries, returning true or false?',
+    options: ['find()', 'includes()', 'indexOf()', 'some()']
+  };
+
+  const sampleModuleActive = {
+    moduleId: 'mod-1',
+    title: 'JavaScript Foundations & Modern ES6+',
+    description: 'Master asynchronous JavaScript, promises, closures, and modern ES2022 syntax.',
+    resourceTags: ['javascript', 'web'],
+    estimatedHours: 10,
+    status: 'active'
+  };
+
+  const sampleModuleComplete = {
+    moduleId: 'mod-2',
+    title: 'React Core Principles & Hooks Architecture',
+    description: 'Build single-page apps with hooks, state reconciliations, and context.',
+    resourceTags: ['react', 'frontend'],
+    estimatedHours: 12,
+    status: 'complete'
+  };
+
+  const sampleModuleLocked = {
+    moduleId: 'mod-3',
+    title: 'Node.js & Express RESTful API Services',
+    description: 'Architect scalable backend services, custom routing, and middleware.',
+    resourceTags: ['node', 'express'],
+    estimatedHours: 14,
+    status: 'locked'
+  };
 
   return (
-    <main id="main-content" className="pf-styleguide">
-      <header className="pf-styleguide__header">
-        <h1 style={{ fontSize: 'var(--font-size-3xl)' }}>
-          PathForge Design System Styleguide
-        </h1>
-        <p style={{ color: 'var(--color-text-secondary)', marginTop: 'var(--space-1)' }}>
-          Comprehensive living catalog of all core tokens, form elements, status
-          indicators, and domain components in every state.
-        </p>
-      </header>
-
-      {/* 1. BUTTONS */}
-      <section className="pf-styleguide__section">
-        <h2 className="pf-styleguide__section-title">1. Button Component</h2>
-
-        <div className="pf-styleguide__demo-box">
-          <span className="pf-styleguide__label">Variants</span>
-          <div className="pf-styleguide__row">
-            <Button variant="primary">Primary</Button>
-            <Button variant="secondary">Secondary</Button>
-            <Button variant="ghost">Ghost</Button>
-            <Button variant="danger">Danger</Button>
-          </div>
-        </div>
-
-        <div className="pf-styleguide__demo-box">
-          <span className="pf-styleguide__label">Sizes</span>
-          <div className="pf-styleguide__row">
-            <Button size="sm">Small (sm)</Button>
-            <Button size="md">Medium (md)</Button>
-            <Button size="lg">Large (lg)</Button>
-          </div>
-        </div>
-
-        <div className="pf-styleguide__demo-box">
-          <span className="pf-styleguide__label">States (Loading & Disabled)</span>
-          <div className="pf-styleguide__row">
-            <Button loading variant="primary">
-              Saving…
-            </Button>
-            <Button disabled variant="primary">
-              Disabled Primary
-            </Button>
-            <Button disabled variant="secondary">
-              Disabled Secondary
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* 2. INPUTS */}
-      <section className="pf-styleguide__section">
-        <h2 className="pf-styleguide__section-title">2. Input Component</h2>
-        <div className="pf-styleguide__grid">
-          <div className="pf-styleguide__demo-box">
-            <span className="pf-styleguide__label">Standard Input with Hint</span>
-            <Input
-              label="Full Name"
-              placeholder="e.g. Alex Morgan"
-              hint="Enter your legal name as it appears on certificates."
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-            />
-          </div>
-
-          <div className="pf-styleguide__demo-box">
-            <span className="pf-styleguide__label">Validation Error State</span>
-            <Input
-              label="Email Address"
-              type="email"
-              value="invalid-email@"
-              error="Please enter a valid email address."
-              onChange={() => {}}
-            />
-          </div>
-
-          <div className="pf-styleguide__demo-box">
-            <span className="pf-styleguide__label">Password with Show/Hide Toggle</span>
-            <Input
-              label="Account Password"
-              type="password"
-              value={passwordValue}
-              onChange={(e) => setPasswordValue(e.target.value)}
-            />
-          </div>
-
-          <div className="pf-styleguide__demo-box">
-            <span className="pf-styleguide__label">Disabled State</span>
-            <Input
-              label="User ID"
-              value="usr-readonly-99"
-              disabled
-              hint="System-generated identifier."
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* 3. CARDS & CONTAINERS */}
-      <section className="pf-styleguide__section">
-        <h2 className="pf-styleguide__section-title">3. Card Component</h2>
-        <div className="pf-styleguide__grid">
-          <Card>
-            <h3
-              style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--space-1)' }}
-            >
-              Standard Card
-            </h3>
-            <p style={{ color: 'var(--color-text-secondary)' }}>
-              Clean content container with token-based elevation and rounded corners.
-            </p>
-          </Card>
-
-          <Card
-            variant="interactive"
-            onClick={() => toast.info('Interactive card clicked!')}
+    <Layout maxWidth="1080px">
+      <div style={{ padding: 'var(--space-6) 0' }}>
+        <div style={{ marginBottom: 'var(--space-6)' }}>
+          <span
+            style={{
+              fontSize: '0.8125rem',
+              fontWeight: 700,
+              color: 'var(--color-primary-700)',
+              backgroundColor: 'var(--color-primary-50)',
+              padding: '4px 12px',
+              borderRadius: 'var(--radius-full)',
+              border: '1px solid var(--color-primary-200)'
+            }}
           >
-            <h3
-              style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--space-1)' }}
-            >
-              Interactive Card (Click Me)
-            </h3>
-            <p style={{ color: 'var(--color-text-secondary)' }}>
-              Displays hover elevation, focus ring, and keyboard trigger support.
-            </p>
-          </Card>
-
-          <Card
-            header={<strong>Card Header Slot</strong>}
-            footer={
-              <Button size="sm" variant="primary">
-                Action
-              </Button>
-            }
+            Design System & Component Library
+          </span>
+          <h1
+            style={{
+              fontSize: '2.25rem',
+              fontWeight: 800,
+              color: 'var(--color-neutral-900)',
+              marginTop: 'var(--space-1)'
+            }}
           >
-            <p style={{ color: 'var(--color-text-secondary)' }}>
-              Card configured with custom header and footer slots.
-            </p>
+            PathForge Component Styleguide
+          </h1>
+          <p style={{ color: 'var(--color-text-muted)' }}>
+            Deep blue/teal primary palette, strict single amber accent for progress & readiness,
+            neutral grays, 8px grid.
+          </p>
+        </div>
+
+        {/* 1. Buttons */}
+        <section style={{ marginBottom: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 'var(--space-2)' }}>
+            1. Buttons (Variants & Sizes)
+          </h2>
+          <Card style={{ padding: 'var(--space-4)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              <div>
+                <h4
+                  style={{
+                    fontSize: '0.875rem',
+                    color: 'var(--color-text-muted)',
+                    marginBottom: 'var(--space-1)'
+                  }}
+                >
+                  Variants
+                </h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                  <Button variant="primary">Primary</Button>
+                  <Button variant="secondary">Secondary</Button>
+                  <Button variant="outline">Outline</Button>
+                  <Button variant="ghost">Ghost</Button>
+                  <Button variant="danger">Danger</Button>
+                </div>
+              </div>
+
+              <div>
+                <h4
+                  style={{
+                    fontSize: '0.875rem',
+                    color: 'var(--color-text-muted)',
+                    marginBottom: 'var(--space-1)'
+                  }}
+                >
+                  Sizes
+                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <Button size="sm">Small (sm)</Button>
+                  <Button size="md">Medium (md)</Button>
+                  <Button size="lg">Large (lg)</Button>
+                </div>
+              </div>
+
+              <div>
+                <h4
+                  style={{
+                    fontSize: '0.875rem',
+                    color: 'var(--color-text-muted)',
+                    marginBottom: 'var(--space-1)'
+                  }}
+                >
+                  States: Disabled & Loading
+                </h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                  <Button disabled>Disabled Primary</Button>
+                  <Button variant="outline" disabled>
+                    Disabled Outline
+                  </Button>
+                  <Button loading>Loading...</Button>
+                  <Button variant="secondary" loading>
+                    Loading Secondary
+                  </Button>
+                </div>
+              </div>
+            </div>
           </Card>
-        </div>
-      </section>
+        </section>
 
-      {/* 4. PROGRESS BAR (SINGLE AMBER ACCENT) */}
-      <section className="pf-styleguide__section">
-        <h2 className="pf-styleguide__section-title">
-          4. ProgressBar (Reserved Amber Accent)
-        </h2>
-        <div className="pf-styleguide__demo-box">
-          <ProgressBar label="Overall Roadmap Progress" value={42} size="md" />
-          <ProgressBar label="Beginner Track (sm)" value={15} size="sm" />
-          <ProgressBar label="Mastery Track Complete (lg)" value={100} size="lg" />
-        </div>
-      </section>
-
-      {/* 5. STATUS CIRCLE */}
-      <section className="pf-styleguide__section">
-        <h2 className="pf-styleguide__section-title">
-          5. StatusCircle (No Color-Alone Reliance)
-        </h2>
-        <div className="pf-styleguide__demo-box">
-          <div className="pf-styleguide__row" style={{ gap: 'var(--space-4)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              <StatusCircle status="locked" />
-              <span>Locked (Lock Symbol)</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              <StatusCircle status="active" />
-              <span>Active / In Progress (Play Icon & Amber)</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              <StatusCircle status="complete" />
-              <span>Complete (Checkmark & Green)</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. STEPPER MODULE */}
-      <section className="pf-styleguide__section">
-        <h2 className="pf-styleguide__section-title">6. StepperModule Roadmap Steps</h2>
-        <div style={{ maxWidth: 640 }}>
-          {clickedModule && (
-            <p
+        {/* 2. Form Inputs */}
+        <section style={{ marginBottom: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 'var(--space-2)' }}>
+            2. Form Inputs
+          </h2>
+          <Card style={{ padding: 'var(--space-4)' }}>
+            <div
               style={{
-                color: 'var(--color-primary)',
-                fontWeight: 'bold',
-                marginBottom: 'var(--space-2)',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: 'var(--space-3)'
               }}
             >
-              Selected: {clickedModule}
-            </p>
-          )}
+              <Input
+                label="Standard Input"
+                placeholder="Type here..."
+                value={inputVal}
+                onChange={(e) => setInputVal(e.target.value)}
+              />
 
-          <StepperModule
-            stepNumber={1}
-            title="Modern JavaScript & Event Loop"
-            description="Deep dive into asynchronous JavaScript, Promises, and the V8 runtime queue."
-            estimatedHours={8}
-            status="complete"
-            isLast={false}
-            onClick={() => setClickedModule('Module 1: Complete')}
-          />
+              <Input
+                label="Input with Helper Text"
+                placeholder="e.g. alex@example.com"
+                helperText="We will never share your email with third parties."
+              />
 
-          <StepperModule
-            stepNumber={2}
-            title="React Architecture & State Models"
-            description="Component lifecycles, custom hooks, and state composition patterns."
-            estimatedHours={12}
-            status="active"
-            isLast={false}
-            onClick={() => setClickedModule('Module 2: Active')}
-          />
+              <Input
+                label="Input with Error State"
+                value="invalid-format@"
+                readOnly
+                error="Please enter a valid email address with a domain."
+              />
 
-          <StepperModule
-            stepNumber={3}
-            title="Secure API Construction with Node & Express"
-            description="RESTful endpoints, middleware validation pipelines, and secure JWT cookies."
-            estimatedHours={10}
-            status="locked"
-            isLast={true}
-            onClick={() => setClickedModule('Module 3: Locked')}
-          />
-        </div>
-      </section>
+              <Input label="Disabled Input" value="Fixed system identifier" disabled readOnly />
+            </div>
+          </Card>
+        </section>
 
-      {/* 7. READINESS SCORE */}
-      <section className="pf-styleguide__section">
-        <h2 className="pf-styleguide__section-title">
-          7. ReadinessScore (Circular SVG Gauge)
-        </h2>
-        <div className="pf-styleguide__demo-box">
-          <div className="pf-styleguide__row" style={{ justifyContent: 'space-around' }}>
-            <ReadinessScore score={28} label="Early Stage" />
-            <ReadinessScore score={readinessValue} label="Interactive Gauge" />
-            <ReadinessScore score={100} label="Job Ready" />
-          </div>
+        {/* 3. Progress Bar & Readiness Scores */}
+        <section style={{ marginBottom: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 'var(--space-2)' }}>
+            3. Progress Bar & Readiness Scores (Strict Amber Accent)
+          </h2>
+          <Card style={{ padding: 'var(--space-4)' }}>
+            <div style={{ marginBottom: 'var(--space-4)' }}>
+              <h4
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--color-text-muted)',
+                  marginBottom: 'var(--space-2)'
+                }}
+              >
+                Progress Bars (0%, 35%, 65%, 100%)
+              </h4>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--space-2)',
+                  maxWidth: '480px'
+                }}
+              >
+                <ProgressBar value={0} max={100} label="Not Started" />
+                <ProgressBar value={35} max={100} label="In Progress" />
+                <ProgressBar value={65} max={100} label="Advancing" />
+                <ProgressBar value={100} max={100} label="Completed" />
+              </div>
+            </div>
 
-          <div style={{ marginTop: 'var(--space-3)' }}>
-            <span className="pf-styleguide__label">Test Live Gauge Animation:</span>
-            <div className="pf-styleguide__row" style={{ marginTop: 'var(--space-1)' }}>
-              <Button size="sm" variant="secondary" onClick={() => setReadinessValue(20)}>
-                Set 20%
+            <div>
+              <h4
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--color-text-muted)',
+                  marginBottom: 'var(--space-2)'
+                }}
+              >
+                Readiness Score Radial Gauges (sm, md, lg)
+              </h4>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: 'var(--space-4)'
+                }}
+              >
+                <ReadinessScore score={15} size="sm" />
+                <ReadinessScore score={45} size="md" />
+                <ReadinessScore score={72} size="lg" />
+                <ReadinessScore score={95} size="md" />
+              </div>
+            </div>
+          </Card>
+        </section>
+
+        {/* 4. Status Circle & Timeline Stepper */}
+        <section style={{ marginBottom: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 'var(--space-2)' }}>
+            4. Status Circles & Stepper Modules
+          </h2>
+          <Card style={{ padding: 'var(--space-4)' }}>
+            <div style={{ marginBottom: 'var(--space-3)' }}>
+              <h4
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--color-text-muted)',
+                  marginBottom: 'var(--space-1)'
+                }}
+              >
+                Status Circles (sm, md, lg)
+              </h4>
+              <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+                <StatusCircle status="locked" size="sm" />
+                <StatusCircle status="active" size="md" />
+                <StatusCircle status="complete" size="lg" />
+              </div>
+            </div>
+
+            <div>
+              <h4
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--color-text-muted)',
+                  marginBottom: 'var(--space-2)'
+                }}
+              >
+                Sequential Module Stepper
+              </h4>
+              <div style={{ maxWidth: '640px' }}>
+                <StepperModule module={sampleModuleComplete} index={0} isLast={false} />
+                <StepperModule module={sampleModuleActive} index={1} isLast={false} />
+                <StepperModule module={sampleModuleLocked} index={2} isLast={true} />
+              </div>
+            </div>
+          </Card>
+        </section>
+
+        {/* 5. Quiz Question Component */}
+        <section style={{ marginBottom: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 'var(--space-2)' }}>
+            5. Accessible Quiz Question (Keyboard & Screen-Reader Accessible)
+          </h2>
+          <Card style={{ padding: 'var(--space-4)', maxWidth: '680px' }}>
+            <QuizQuestion
+              question={sampleQuestion}
+              questionNumber={1}
+              totalQuestions={12}
+              selectedIndex={quizSelection}
+              onSelectOption={setQuizSelection}
+            />
+          </Card>
+        </section>
+
+        {/* 6. Spinners & Skeletons */}
+        <section style={{ marginBottom: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 'var(--space-2)' }}>
+            6. Loading States (Spinners & Skeletons)
+          </h2>
+          <Card style={{ padding: 'var(--space-4)' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 'var(--space-4)',
+                alignItems: 'center',
+                marginBottom: 'var(--space-3)'
+              }}
+            >
+              <Spinner size="sm" />
+              <Spinner size="md" />
+              <Spinner size="lg" />
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-1-5)',
+                maxWidth: '420px'
+              }}
+            >
+              <Skeleton variant="text" width="60%" />
+              <Skeleton variant="text" width="90%" />
+              <Skeleton variant="rect" height="60px" />
+              <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                <Skeleton variant="circle" width="36px" height="36px" />
+                <Skeleton variant="text" width="50%" />
+              </div>
+            </div>
+          </Card>
+        </section>
+
+        {/* 7. Toast Alerts */}
+        <section style={{ marginBottom: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 'var(--space-2)' }}>
+            7. Toast Notifications
+          </h2>
+          <Card style={{ padding: 'var(--space-4)' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+              <Button
+                variant="secondary"
+                onClick={() => toast.info('Diagnostic progress auto-saved.')}
+              >
+                Trigger Info Toast
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => setReadinessValue(50)}>
-                Set 50%
+              <Button
+                variant="primary"
+                onClick={() => toast.success('Module marked as complete! Readiness increased.')}
+              >
+                Trigger Success Toast
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => setReadinessValue(85)}>
-                Set 85%
+              <Button
+                variant="outline"
+                onClick={() => toast.warning('Complete prior modules to unlock this stage.')}
+              >
+                Trigger Warning Toast
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => toast.error('Invalid email or password. Please try again.')}
+              >
+                Trigger Error Toast
               </Button>
             </div>
-          </div>
+          </Card>
+        </section>
 
-          <div style={{ marginTop: 'var(--space-3)' }}>
-            <span className="pf-styleguide__label">
-              Compact Variant (for Mobile / Header):
-            </span>
-            <div style={{ marginTop: 'var(--space-1)' }}>
-              <ReadinessScore score={readinessValue} compact label="Readiness" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 8. QUIZ QUESTION */}
-      <section className="pf-styleguide__section">
-        <h2 className="pf-styleguide__section-title">8. QuizQuestion Component</h2>
-        <div className="pf-styleguide__demo-box">
-          <span className="pf-styleguide__label">Interactive Assessment State</span>
-          <QuizQuestion
-            questionNumber={1}
-            questionText="How proficient are you diagnosing asynchronous memory leaks in JavaScript?"
-            subtitle="Rate your hands-on production experience."
-            options={sampleQuizOptions}
-            selectedIndex={quizSelection}
-            onSelectOption={setQuizSelection}
-          />
-
-          <span className="pf-styleguide__label" style={{ marginTop: 'var(--space-2)' }}>
-            Review / Checkpoint Result State (Correct vs Choice)
-          </span>
-          <QuizQuestion
-            questionNumber={2}
-            questionText="Where should sensitive session tokens be stored to protect against XSS attacks?"
-            options={[
-              'localStorage',
-              'httpOnly Secure Cookie',
-              'URL query parameters',
-              'sessionStorage',
-            ]}
-            selectedIndex={0}
-            correctIndex={1}
-            showResult
-          />
-        </div>
-      </section>
-
-      {/* 9. SKELETONS, EMPTY & ERROR STATES */}
-      <section className="pf-styleguide__section">
-        <h2 className="pf-styleguide__section-title">
-          9. Skeletons, Empty States & Error States
-        </h2>
-
-        <div className="pf-styleguide__demo-box">
-          <span className="pf-styleguide__label">Skeleton Shimmer Variants</span>
+        {/* 8. Empty & Error States */}
+        <section style={{ marginBottom: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 'var(--space-2)' }}>
+            8. Empty & Error States
+          </h2>
           <div
-            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+              gap: 'var(--space-3)'
+            }}
           >
-            <Skeleton variant="circle" />
-            <Skeleton variant="text" lines={3} />
-            <Skeleton variant="card" height="90px" />
+            <Card style={{ padding: 'var(--space-3)' }}>
+              <EmptyState
+                title="No Active Modules"
+                description="You have completed all active modules in your current career roadmap."
+                actionLabel="Explore New Roles"
+                onAction={() => {}}
+              />
+            </Card>
+
+            <Card style={{ padding: 'var(--space-3)' }}>
+              <ErrorState
+                title="Network Disconnected"
+                message="Unable to reach PathForge API servers. Please check your internet connection."
+                onRetry={() => {}}
+              />
+            </Card>
           </div>
-        </div>
-
-        <div className="pf-styleguide__demo-box">
-          <span className="pf-styleguide__label">Empty State</span>
-          <EmptyState
-            icon="📚"
-            title="No modules completed yet"
-            message="Start with Module 1 to unlock your tailored employability path."
-            action={<Button variant="primary">Begin First Module</Button>}
-          />
-        </div>
-
-        <div className="pf-styleguide__demo-box">
-          <span className="pf-styleguide__label">Error State with Retry Action</span>
-          <ErrorState
-            title="Failed to load roadmap data"
-            message="The PathForge API could not be reached. Please check your network connection."
-            onRetry={() => toast.error('Retried request! (Simulated error state)')}
-          />
-        </div>
-      </section>
-
-      {/* 10. TOAST NOTIFICATIONS */}
-      <section className="pf-styleguide__section">
-        <h2 className="pf-styleguide__section-title">10. Toast Notifications</h2>
-        <div className="pf-styleguide__demo-box">
-          <span className="pf-styleguide__label">Trigger Toasts</span>
-          <div className="pf-styleguide__row">
-            <Button
-              variant="secondary"
-              onClick={() =>
-                toast.success('Module successfully completed! +15% readiness')
-              }
-            >
-              Trigger Success Toast
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => toast.error('Failed to save assessment answers')}
-            >
-              Trigger Error Toast
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => toast.info('New checkpoint quiz available for Module 2')}
-            >
-              Trigger Info Toast
-            </Button>
-          </div>
-        </div>
-      </section>
-    </main>
+        </section>
+      </div>
+    </Layout>
   );
 }
+
+export default StyleguidePage;

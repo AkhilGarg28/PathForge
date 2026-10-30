@@ -1,505 +1,526 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import * as api from '../services/api.js';
+import { Layout } from '../components/Layout.jsx';
+import { Card } from '../components/Card.jsx';
+import { Input } from '../components/Input.jsx';
+import { Button } from '../components/Button.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { usePageTitle } from '../hooks/usePageTitle.js';
-import {
-  validateName,
-  validatePassword,
-  validateConfirmPassword,
-} from '../utils/validation.js';
-import Button from '../components/Button.jsx';
-import Input from '../components/Input.jsx';
-import Modal from '../components/Modal.jsx';
-import './SettingsPage.css';
+import { api } from '../services/api.js';
 
-function getRoleTitle(id, rolesList = []) {
-  if (!id) return 'None Selected';
-  const match = rolesList.find((r) => r.id === id || r.name === id || r.title === id);
-  if (match?.title) return match.title;
-  if (match?.name) return match.name;
-  if (id === 'mern-developer') return 'MERN Developer';
-  if (id === 'data-analyst') return 'Data Analyst';
-  return id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-export default function SettingsPage() {
-  const navigate = useNavigate();
-  const { user, refreshUser, logout } = useAuth();
-  const { success, error: toastError } = useToast();
+export function SettingsPage() {
   usePageTitle('Account Settings');
+  const { user, setUser, logout } = useAuth();
+  const toast = useToast();
+  const navigate = useNavigate();
 
-  const [roles, setRoles] = useState([]);
+  // Profile Name State
+  const [name, setName] = useState(user?.name || '');
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState(null);
 
-  // Fetch available roles metadata
-  useEffect(() => {
-    let isCancelled = false;
-    api
-      .getRoles()
-      .then((res) => {
-        if (!isCancelled) {
-          setRoles(res.roles || []);
-        }
-      })
-      .catch(() => {
-        // Non-critical metadata
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
-
-  // --------------------------------------------------------------------------
-  // 1. Profile Section State
-  // --------------------------------------------------------------------------
-  const [customName, setCustomName] = useState(null);
-  const name = customName !== null ? customName : user?.name || '';
-  const [nameError, setNameError] = useState(null);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-
-  const handleProfileSubmit = async (e) => {
-    e.preventDefault();
-    if (isSavingProfile) return;
-
-    const validationErr = validateName(name);
-    if (validationErr) {
-      setNameError(validationErr);
-      return;
-    }
-    setNameError(null);
-    setIsSavingProfile(true);
-
-    try {
-      await api.updateProfile({ name: name.trim() });
-      await refreshUser();
-      setCustomName(null);
-      success('Profile updated successfully.');
-    } catch (err) {
-      toastError(err.message || 'Failed to update profile.');
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
-
-  // --------------------------------------------------------------------------
-  // 2. Change Password Section State
-  // --------------------------------------------------------------------------
+  // Password Update State
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState({});
 
-  const [currentPasswordError, setCurrentPasswordError] = useState(null);
-  const [newPasswordError, setNewPasswordError] = useState(null);
-  const [confirmPasswordError, setConfirmPasswordError] = useState(null);
-  const [passwordServerErr, setPasswordServerErr] = useState(null);
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-
-  const handlePasswordSubmit = async (e) => {
-    e.preventDefault();
-    if (isUpdatingPassword) return;
-
-    let hasErrors = false;
-
-    if (!currentPassword) {
-      setCurrentPasswordError('Current password is required.');
-      hasErrors = true;
-    } else {
-      setCurrentPasswordError(null);
-    }
-
-    const newPassErr = validatePassword(newPassword);
-    if (newPassErr) {
-      setNewPasswordError(newPassErr);
-      hasErrors = true;
-    } else {
-      setNewPasswordError(null);
-    }
-
-    const confirmErr = validateConfirmPassword(confirmPassword, newPassword);
-    if (confirmErr) {
-      setConfirmPasswordError(confirmErr);
-      hasErrors = true;
-    } else {
-      setConfirmPasswordError(null);
-    }
-
-    if (hasErrors) return;
-
-    setIsUpdatingPassword(true);
-    setPasswordServerErr(null);
-
-    try {
-      await api.updatePassword({
-        currentPassword,
-        newPassword,
-      });
-      success('Password updated successfully.');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setCurrentPasswordError(null);
-      setNewPasswordError(null);
-      setConfirmPasswordError(null);
-    } catch (err) {
-      const msg = err.message || 'Failed to update password.';
-      setPasswordServerErr(msg);
-      if (err.code === 'INVALID_PASSWORD' || err.status === 401) {
-        setCurrentPasswordError('Current password is incorrect.');
-      }
-      toastError(msg);
-    } finally {
-      setIsUpdatingPassword(false);
-    }
-  };
-
-  // --------------------------------------------------------------------------
-  // 3. Target Role Section State
-  // --------------------------------------------------------------------------
-  const [showRoleModal, setShowRoleModal] = useState(false);
-
-  const handleConfirmChangeRole = useCallback(() => {
-    setShowRoleModal(false);
-    navigate('/role-selection');
-  }, [navigate]);
-
-  // --------------------------------------------------------------------------
-  // 4. Danger Zone / Delete Account Section State
-  // --------------------------------------------------------------------------
+  // Delete Account Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleCloseDeleteModal = useCallback(() => {
-    setShowDeleteModal(false);
-    setDeletePassword('');
-    setDeleteError(null);
-  }, []);
-
-  const handleConfirmDelete = async (e) => {
+  // 1. Update Profile Name
+  const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    if (isDeleting) return;
+    setProfileError(null);
+    const trimmed = name.trim();
 
-    if (!deletePassword) {
-      setDeleteError('Please enter your password to confirm deletion.');
+    if (!trimmed || trimmed.length < 2) {
+      setProfileError('Name must be at least 2 characters');
+      return;
+    }
+    if (trimmed.length > 50) {
+      setProfileError('Name cannot exceed 50 characters');
       return;
     }
 
-    setIsDeleting(true);
-    setDeleteError(null);
-
+    setProfileLoading(true);
     try {
-      await api.deleteUser({ password: deletePassword });
-      handleCloseDeleteModal();
-      await logout();
-      success('Your account has been deleted.');
-      navigate('/');
+      const res = await api.updateProfile({ name: trimmed });
+      if (res?.data?.user) {
+        setUser(res.data.user);
+      }
+      toast.success('Display name updated successfully');
     } catch (err) {
-      const msg = err.message || 'Failed to delete account.';
-      setDeleteError(msg);
-      toastError(msg);
+      toast.error(err.message || 'Failed to update profile name');
     } finally {
-      setIsDeleting(false);
+      setProfileLoading(false);
     }
   };
 
-  const activeRoleTitle = getRoleTitle(user?.roleId || user?.targetRole, roles);
+  // 2. Change Password
+  const validatePasswordForm = () => {
+    const errs = {};
+    if (!currentPassword) {
+      errs.currentPassword = 'Current password is required';
+    }
+    if (!newPassword || newPassword.length < 8) {
+      errs.newPassword = 'Password must be at least 8 characters long';
+    } else if (!/[a-zA-Z]/.test(newPassword)) {
+      errs.newPassword = 'Password must contain at least one letter';
+    } else if (!/[0-9]/.test(newPassword)) {
+      errs.newPassword = 'Password must contain at least one number';
+    }
+
+    if (newPassword !== confirmPassword) {
+      errs.confirmPassword = 'Passwords do not match';
+    }
+
+    setPasswordErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (!validatePasswordForm()) return;
+
+    setPasswordLoading(true);
+    try {
+      await api.updatePassword({ currentPassword, newPassword });
+      toast.success('Password updated successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordErrors({});
+    } catch (err) {
+      toast.error(err.message || 'Failed to update password');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // 3. Change Role Handler
+  const handleChangeRole = () => {
+    const confirmed = window.confirm(
+      'Changing your career role will require completing a new diagnostic assessment to synthesize an updated roadmap. Do you want to proceed?'
+    );
+    if (confirmed) {
+      navigate('/roles');
+    }
+  };
+
+  // 4. Delete Account Handler
+  const handleDeleteAccount = async (e) => {
+    e.preventDefault();
+    setDeleteError(null);
+
+    if (!deletePassword) {
+      setDeleteError('Please enter your password to confirm deletion');
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      await api.deleteAccount({ password: deletePassword });
+      toast.success('Your PathForge account has been permanently deleted.');
+      setShowDeleteModal(false);
+      await logout();
+      navigate('/');
+    } catch (err) {
+      const msg = err.message || 'Failed to delete account. Incorrect password.';
+      setDeleteError(msg);
+      toast.error(msg);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // 5. Logout Handler
+  const handleLogout = async () => {
+    await logout();
+    toast.info('Signed out successfully');
+    navigate('/login');
+  };
+
+  const roleName =
+    user?.roleId === 'data-analyst'
+      ? 'Data Analyst'
+      : user?.roleId
+        ? 'MERN Developer'
+        : 'None Selected';
 
   return (
-    <main id="main-content" className="pf-settings-page">
-      <header className="pf-settings-header">
-        <h1 className="pf-settings-title">Account Settings</h1>
-        <p className="pf-settings-subtitle">
-          Manage your personal details, credentials, and career roadmap preferences.
-        </p>
-      </header>
-
-      <div className="pf-settings-sections">
-        {/* Section 1: Profile */}
-        <section className="pf-settings-card" aria-labelledby="profile-heading">
-          <div className="pf-settings-card__header">
-            <h2 id="profile-heading" className="pf-settings-card__title">
-              Profile Information
-            </h2>
-            <p className="pf-settings-card__desc">
-              Update your display name. Your email address is read-only.
+    <Layout maxWidth="700px">
+      <div style={{ padding: 'var(--space-4) 0 var(--space-8)' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 'var(--space-4)'
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                fontSize: '1.75rem',
+                fontWeight: 800,
+                color: 'var(--color-neutral-900)',
+                marginBottom: 'var(--space-0-5)'
+              }}
+            >
+              Account Settings
+            </h1>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+              Manage your personal credentials, career trajectory, and account preferences.
             </p>
           </div>
 
-          <form onSubmit={handleProfileSubmit} noValidate>
-            <div className="pf-settings-card__body">
-              <Input
-                label="Full Name"
-                name="name"
-                value={name}
-                onChange={(e) => {
-                  setCustomName(e.target.value);
-                  if (nameError) setNameError(null);
-                }}
-                error={nameError}
-                required
-                autoComplete="name"
-              />
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            Sign Out
+          </Button>
+        </div>
 
-              <Input
-                label="Email Address"
-                value={user?.email || ''}
-                disabled
-                hint="Your registered login email address cannot be changed."
-              />
-            </div>
+        {/* 1. Profile Information */}
+        <Card style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+          <h2
+            style={{
+              fontSize: '1.125rem',
+              fontWeight: 700,
+              color: 'var(--color-neutral-900)',
+              marginBottom: 'var(--space-2)'
+            }}
+          >
+            Profile Information
+          </h2>
 
-            <div className="pf-settings-card__footer">
+          <form onSubmit={handleUpdateProfile} noValidate>
+            <Input
+              label="Email Address"
+              type="email"
+              value={user?.email || ''}
+              disabled
+              helperText="Email is permanently linked to your diagnostic records."
+            />
+
+            <Input
+              label="Display Name"
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (profileError) setProfileError(null);
+              }}
+              error={profileError}
+              disabled={profileLoading}
+              required
+            />
+
+            <div
+              style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-2)' }}
+            >
               <Button
                 type="submit"
                 variant="primary"
                 size="md"
-                loading={isSavingProfile}
-                disabled={isSavingProfile || name.trim() === (user?.name || '')}
+                loading={profileLoading}
+                disabled={profileLoading}
               >
-                Save Profile
+                Save Name
               </Button>
             </div>
           </form>
-        </section>
+        </Card>
 
-        {/* Section 2: Change Password */}
-        <section className="pf-settings-card" aria-labelledby="password-heading">
-          <div className="pf-settings-card__header">
-            <h2 id="password-heading" className="pf-settings-card__title">
-              Change Password
-            </h2>
-            <p className="pf-settings-card__desc">
-              Choose a strong password containing at least 8 characters with letters and
-              numbers.
-            </p>
-          </div>
-
-          <form onSubmit={handlePasswordSubmit} noValidate>
-            <div className="pf-settings-card__body">
-              {passwordServerErr && (
-                <div className="pf-settings-inline-error" role="alert" aria-live="polite">
-                  {passwordServerErr}
-                </div>
-              )}
-
-              <Input
-                label="Current Password"
-                type="password"
-                name="currentPassword"
-                value={currentPassword}
-                onChange={(e) => {
-                  setCurrentPassword(e.target.value);
-                  if (currentPasswordError) setCurrentPasswordError(null);
+        {/* 2. Current Career Role */}
+        <Card style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              flexWrap: 'wrap',
+              gap: 'var(--space-2)'
+            }}
+          >
+            <div>
+              <h2
+                style={{
+                  fontSize: '1.125rem',
+                  fontWeight: 700,
+                  color: 'var(--color-neutral-900)',
+                  marginBottom: 'var(--space-0-5)'
                 }}
-                error={currentPasswordError}
-                required
-                autoComplete="current-password"
-              />
+              >
+                Target Career Role
+              </h2>
 
-              <Input
-                label="New Password"
-                type="password"
-                name="newPassword"
-                value={newPassword}
-                onChange={(e) => {
-                  setNewPassword(e.target.value);
-                  if (newPasswordError) setNewPasswordError(null);
+              <p
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--color-text-muted)',
+                  maxWidth: '440px',
+                  marginBottom: 'var(--space-2)'
                 }}
-                error={newPasswordError}
-                hint="Must be at least 8 characters with at least one letter and one number."
-                required
-                autoComplete="new-password"
-              />
+              >
+                Changing your career role will require completing a new diagnostic assessment to
+                synthesize an updated roadmap.
+              </p>
 
-              <Input
-                label="Confirm New Password"
-                type="password"
-                name="confirmPassword"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  if (confirmPasswordError) setConfirmPasswordError(null);
+              <div
+                style={{
+                  display: 'inline-block',
+                  fontSize: '0.875rem',
+                  fontWeight: 700,
+                  color: 'var(--color-primary-800)',
+                  backgroundColor: 'var(--color-primary-50)',
+                  border: '1px solid var(--color-primary-200)',
+                  padding: '4px 12px',
+                  borderRadius: 'var(--radius-full)'
                 }}
-                error={confirmPasswordError}
-                required
-                autoComplete="new-password"
-              />
+              >
+                Current Role: {roleName}
+              </div>
             </div>
 
-            <div className="pf-settings-card__footer">
+            <Button variant="outline" size="md" onClick={handleChangeRole}>
+              Change Role
+            </Button>
+          </div>
+        </Card>
+
+        {/* 3. Change Password */}
+        <Card style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+          <h2
+            style={{
+              fontSize: '1.125rem',
+              fontWeight: 700,
+              color: 'var(--color-neutral-900)',
+              marginBottom: 'var(--space-2)'
+            }}
+          >
+            Change Password
+          </h2>
+
+          <form onSubmit={handleUpdatePassword} noValidate>
+            <Input
+              label="Current Password"
+              type="password"
+              placeholder="Enter current password"
+              value={currentPassword}
+              onChange={(e) => {
+                setCurrentPassword(e.target.value);
+                if (passwordErrors.currentPassword) {
+                  setPasswordErrors((prev) => ({ ...prev, currentPassword: null }));
+                }
+              }}
+              error={passwordErrors.currentPassword}
+              disabled={passwordLoading}
+              required
+            />
+
+            <Input
+              label="New Password"
+              type="password"
+              placeholder="At least 8 characters with letter & number"
+              value={newPassword}
+              onChange={(e) => {
+                setNewPassword(e.target.value);
+                if (passwordErrors.newPassword) {
+                  setPasswordErrors((prev) => ({ ...prev, newPassword: null }));
+                }
+              }}
+              error={passwordErrors.newPassword}
+              helperText={
+                !passwordErrors.newPassword
+                  ? 'Must be at least 8 characters, containing letters and numbers.'
+                  : null
+              }
+              disabled={passwordLoading}
+              required
+            />
+
+            <Input
+              label="Confirm New Password"
+              type="password"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                if (passwordErrors.confirmPassword) {
+                  setPasswordErrors((prev) => ({ ...prev, confirmPassword: null }));
+                }
+              }}
+              error={passwordErrors.confirmPassword}
+              disabled={passwordLoading}
+              required
+            />
+
+            <div
+              style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-2)' }}
+            >
               <Button
                 type="submit"
                 variant="primary"
                 size="md"
-                loading={isUpdatingPassword}
-                disabled={isUpdatingPassword}
+                loading={passwordLoading}
+                disabled={passwordLoading}
               >
                 Update Password
               </Button>
             </div>
           </form>
-        </section>
+        </Card>
 
-        {/* Section 3: Target Role */}
-        <section className="pf-settings-card" aria-labelledby="role-heading">
-          <div className="pf-settings-card__header">
-            <h2 id="role-heading" className="pf-settings-card__title">
-              Target Career Role
-            </h2>
-            <p className="pf-settings-card__desc">
-              Your personalized curriculum and roadmap are aligned with this career path.
-            </p>
-          </div>
-
-          <div className="pf-settings-card__body">
-            <div className="pf-settings-role-box">
-              <div className="pf-settings-role-info">
-                <span className="pf-settings-role-label">Active Career Path</span>
-                <span className="pf-settings-role-title">🎯 {activeRoleTitle}</span>
-              </div>
-
-              <Button
-                type="button"
-                variant="secondary"
-                size="md"
-                onClick={() => setShowRoleModal(true)}
-              >
-                Change Role
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {/* Section 4: Danger Zone */}
-        <section
-          className="pf-settings-card pf-settings-card--danger"
-          aria-labelledby="danger-heading"
+        {/* 4. Danger Zone: Delete Account */}
+        <Card
+          style={{
+            padding: 'var(--space-4)',
+            border: '1px solid var(--color-error-border)',
+            backgroundColor: 'var(--color-surface)'
+          }}
         >
-          <div className="pf-settings-card__header">
-            <h2 id="danger-heading" className="pf-settings-card__title">
-              <span aria-hidden="true">⚠️</span> Danger Zone
-            </h2>
-            <p className="pf-settings-card__desc">
-              Permanent account actions that cannot be undone.
-            </p>
-          </div>
+          <h2
+            style={{
+              fontSize: '1.125rem',
+              fontWeight: 700,
+              color: 'var(--color-error)',
+              marginBottom: 'var(--space-1)'
+            }}
+          >
+            Danger Zone: Delete Account
+          </h2>
 
-          <div className="pf-settings-card__body">
-            <div className="pf-settings-danger-banner">
-              <strong>Account Deletion Notice:</strong>
-              <span>
-                Deleting your account will immediately remove your profile, diagnostic
-                results, learning history, and progress milestones.
-              </span>
-            </div>
-          </div>
-
-          <div className="pf-settings-card__footer">
-            <Button
-              type="button"
-              variant="danger"
-              size="md"
-              onClick={() => setShowDeleteModal(true)}
-            >
-              Delete Account
-            </Button>
-          </div>
-        </section>
-      </div>
-
-      {/* Confirmation Modal: Change Role */}
-      <Modal
-        isOpen={showRoleModal}
-        onClose={() => setShowRoleModal(false)}
-        title="Change Target Career Role?"
-        size="md"
-        role="dialog"
-        footer={
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="md"
-              onClick={() => setShowRoleModal(false)}
-            >
-              Keep Current Role
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              onClick={handleConfirmChangeRole}
-            >
-              Change Role & Replace Roadmap
-            </Button>
-          </>
-        }
-      >
-        <p>
-          Selecting a new career track will <strong>replace your current roadmap</strong>{' '}
-          and module milestones. You will take the diagnostic assessment tailored to your
-          newly chosen role.
-        </p>
-        <p>Are you sure you want to proceed to role selection?</p>
-      </Modal>
-
-      {/* Confirmation Modal: Delete Account (Focus Trap & Password required) */}
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={handleCloseDeleteModal}
-        title="Permanently Delete Account"
-        size="md"
-        role="alertdialog"
-        footer={
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="md"
-              disabled={isDeleting}
-              onClick={handleCloseDeleteModal}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              size="md"
-              loading={isDeleting}
-              disabled={isDeleting}
-              onClick={handleConfirmDelete}
-            >
-              Permanently Delete Account
-            </Button>
-          </>
-        }
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p>
-            This action is <strong>irreversible</strong>. All your learning milestones,
-            checkpoint quizzes, and diagnostic history will be erased.
+          <p
+            style={{
+              fontSize: '0.875rem',
+              color: 'var(--color-text-muted)',
+              marginBottom: 'var(--space-3)'
+            }}
+          >
+            Permanently delete your PathForge account, diagnostic assessment scores, and AI roadmap.
+            This action cannot be undone.
           </p>
 
-          <form onSubmit={handleConfirmDelete} noValidate>
-            <Input
-              label="Enter your password to confirm deletion"
-              type="password"
-              name="deletePassword"
-              value={deletePassword}
-              onChange={(e) => {
-                setDeletePassword(e.target.value);
-                if (deleteError) setDeleteError(null);
+          <Button
+            variant="danger"
+            size="md"
+            onClick={() => {
+              setDeletePassword('');
+              setDeleteError(null);
+              setShowDeleteModal(true);
+            }}
+          >
+            Delete Account...
+          </Button>
+        </Card>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              padding: 'var(--space-2)'
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                borderRadius: 'var(--radius-xl)',
+                padding: 'var(--space-4)',
+                width: '100%',
+                maxWidth: '460px',
+                boxShadow: 'var(--shadow-xl)',
+                border: '1px solid var(--color-border)'
               }}
-              error={deleteError}
-              required
-              autoComplete="current-password"
-            />
-          </form>
-        </div>
-      </Modal>
-    </main>
+            >
+              <h2
+                id="delete-dialog-title"
+                style={{
+                  fontSize: '1.25rem',
+                  fontWeight: 800,
+                  color: 'var(--color-error)',
+                  marginBottom: 'var(--space-1)'
+                }}
+              >
+                Confirm Account Deletion
+              </h2>
+
+              <p
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--color-text-body)',
+                  lineHeight: 1.5,
+                  marginBottom: 'var(--space-3)'
+                }}
+              >
+                This is a permanent destructive action. Enter your account password to confirm that
+                you wish to delete your account.
+              </p>
+
+              <form onSubmit={handleDeleteAccount} noValidate>
+                <Input
+                  label="Confirm Your Password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={deletePassword}
+                  onChange={(e) => {
+                    setDeletePassword(e.target.value);
+                    if (deleteError) setDeleteError(null);
+                  }}
+                  error={deleteError}
+                  disabled={deleteLoading}
+                  required
+                />
+
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: 'var(--space-2)',
+                    marginTop: 'var(--space-3)'
+                  }}
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    disabled={deleteLoading}
+                    onClick={() => setShowDeleteModal(false)}
+                  >
+                    Cancel
+                  </Button>
+
+                  <Button
+                    type="submit"
+                    variant="danger"
+                    size="md"
+                    loading={deleteLoading}
+                    disabled={deleteLoading}
+                  >
+                    Permanently Delete
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </Layout>
   );
 }
+
+export default SettingsPage;

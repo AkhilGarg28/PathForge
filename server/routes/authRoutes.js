@@ -1,24 +1,15 @@
-const express = require('express');
-const rateLimit = require('express-rate-limit');
-const { signup, login, logout, getMe } = require('../controllers/authController');
-const authMiddleware = require('../middleware/authMiddleware');
+import { Router } from 'express';
+import { signup, login, logout, getMe } from '../controllers/authController.js';
+import { signupSchema, loginSchema, validate } from '../validators/authValidators.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
+import authMiddleware from '../middleware/auth.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
-const router = express.Router();
+const router = Router();
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts
-  message: {
-    message: 'Too many authentication attempts, please try again later',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: () => process.env.NODE_ENV === 'test',
-});
+router.post('/signup', authLimiter, validate(signupSchema), asyncHandler(signup));
+router.post('/login', authLimiter, validate(loginSchema), asyncHandler(login));
+router.post('/logout', asyncHandler(logout));
+router.get('/me', authMiddleware, asyncHandler(getMe));
 
-router.post('/signup', authLimiter, signup);
-router.post('/login', authLimiter, login);
-router.post('/logout', logout);
-router.get('/me', authMiddleware, getMe);
-
-module.exports = router;
+export default router;

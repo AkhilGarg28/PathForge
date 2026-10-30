@@ -1,28 +1,38 @@
 import React from 'react';
 
-const Spinner = ({ size = 'md', label = 'Loading...', inline = false, className = '' }) => {
-  const sizeMap = {
-    sm: 'spinner-sm',
-    md: 'spinner-md',
-    lg: 'spinner-lg',
-  };
+export function Spinner({ size = 'md', color = 'primary', className = '' }) {
+  const sizePx = size === 'sm' ? '16px' : size === 'lg' ? '36px' : '24px';
+  const strokeWidth = size === 'sm' ? '2.5px' : '3px';
 
-  const spinnerClass = `spinner ${sizeMap[size] || 'spinner-md'} ${className}`.trim();
-
-  if (inline) {
-    return (
-      <span className={spinnerClass} role="status" aria-label={label}>
-        <span className="sr-only">{label}</span>
-      </span>
-    );
-  }
+  const colorVar =
+    color === 'white'
+      ? 'var(--color-neutral-0)'
+      : color === 'accent'
+        ? 'var(--color-accent)'
+        : 'var(--color-primary)';
 
   return (
-    <div className="spinner-container" role="status" aria-label={label}>
-      <div className={spinnerClass}></div>
-      {label && <span className="spinner-label">{label}</span>}
+    <div
+      role="status"
+      aria-label="Loading"
+      className={className}
+      style={{
+        display: 'inline-block',
+        width: sizePx,
+        height: sizePx,
+        border: `${strokeWidth} solid var(--color-border)`,
+        borderTopColor: colorVar,
+        borderRadius: '50%',
+        animation: 'pf-spin 0.6s linear infinite'
+      }}
+    >
+      <style>{`
+        @keyframes pf-spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
-};
+}
 
 export default Spinner;

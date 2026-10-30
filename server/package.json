@@ -1,19 +1,29 @@
 {
-  "name": "server",
+  "name": "pathforge-server",
   "version": "1.0.0",
-  "description": "Server API for PathForge",
-  "main": "server.js",
+  "description": "PathForge backend API server",
+  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "build": "echo No build step required",
-    "smoke": "node scripts/smokeTest.js",
-    "dev": "nodemon server.js",
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "test": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js --passWithNoTests",
+    "test:coverage": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js --coverage --passWithNoTests",
     "seed": "node scripts/seed.js",
-    "test": "jest"
+    "validate:data": "node scripts/validateData.js",
+    "lint": "eslint ."
   },
+  "keywords": [
+    "pathforge",
+    "skill-roadmaps",
+    "education",
+    "ai"
+  ],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "compression": "^1.8.2",
+    "compression": "^1.7.4",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -21,13 +31,18 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.10.1",
+    "mongoose": "^8.8.4",
     "morgan": "^1.10.0",
-    "zod": "^3.25.76"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "eslint-config-prettier": "^9.1.0",
     "jest": "^29.7.0",
-    "nodemon": "^3.1.9",
+    "mongodb-memory-server": "^10.1.2",
+    "nodemon": "^3.1.7",
+    "prettier": "^3.4.2",
     "supertest": "^7.0.0"
   }
 }

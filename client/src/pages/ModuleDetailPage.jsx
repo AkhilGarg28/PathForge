@@ -1,371 +1,438 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import * as api from '../services/api.js';
+import { Layout } from '../components/Layout.jsx';
+import { Card } from '../components/Card.jsx';
+import { Button } from '../components/Button.jsx';
+import { Spinner } from '../components/Spinner.jsx';
+import { StatusCircle } from '../components/StatusCircle.jsx';
+import { EmptyState } from '../components/EmptyState.jsx';
 import { useToast } from '../hooks/useToast.js';
 import { usePageTitle } from '../hooks/usePageTitle.js';
-import Button from '../components/Button.jsx';
-import Skeleton from '../components/Skeleton.jsx';
-import ErrorState from '../components/ErrorState.jsx';
-import StatusCircle from '../components/StatusCircle.jsx';
-import './ModuleDetailPage.css';
+import { api } from '../services/api.js';
 
-function getResourceIcon(type) {
-  const normalized = (type || '').toLowerCase();
-  if (normalized.includes('video')) return '🎬';
-  if (normalized.includes('doc')) return '📚';
-  if (normalized.includes('article') || normalized.includes('post')) return '📄';
-  return '🔗';
-}
-
-export default function ModuleDetailPage() {
+export function ModuleDetailPage() {
   const { moduleId } = useParams();
   const navigate = useNavigate();
-  const { success, error: toastError, info } = useToast();
+  const toast = useToast();
 
   const [roadmap, setRoadmap] = useState(null);
+  const [module, setModule] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isCompleting, setIsCompleting] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
+  usePageTitle(module ? module.title : 'Module Detail');
+
+  const completingRef = useRef(false);
   const enableCheckpoint = import.meta.env.VITE_ENABLE_CHECKPOINT === 'true';
 
-  const modules = roadmap?.modules || [];
-  const currentIndex = modules.findIndex((m) => m.moduleId === moduleId);
-  const currentModule = modules[currentIndex];
-
-  usePageTitle(currentModule ? `${currentModule.title} - Module` : 'Module Overview');
-
-  // Fetch roadmap and inspect target module
-  const loadModuleData = useCallback(() => {
-    let isCancelled = false;
-
-    api
-      .getRoadmap()
-      .then((data) => {
-        if (isCancelled) return;
-
-        const targetRoadmap = data.roadmap;
-        const targetModule = targetRoadmap?.modules?.find((m) => m.moduleId === moduleId);
-
-        if (!targetModule) {
-          info(`Module "${moduleId}" was not found in your active roadmap.`);
-          navigate('/dashboard', { replace: true });
-          return;
-        }
-
-        if (targetModule.status === 'locked') {
-          info('This module is locked. Complete the active module to unlock it.');
-          navigate('/dashboard', { replace: true });
-          return;
-        }
-
-        setRoadmap(targetRoadmap);
-        setError(null);
-      })
-      .catch((err) => {
-        if (isCancelled) return;
-
-        if (err.code === 'NO_ROADMAP' || err.status === 404) {
-          info('No active roadmap found. Please select a role first.');
-          navigate('/role-selection', { replace: true });
-          return;
-        }
-
-        setError(err);
-      })
-      .finally(() => {
-        if (!isCancelled) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [moduleId, info, navigate]);
-
-  const handleRetry = useCallback(() => {
+  const fetchModuleData = async () => {
     setLoading(true);
-    loadModuleData();
-  }, [loadModuleData]);
-
-  useEffect(() => {
-    const cleanup = loadModuleData();
-    return cleanup;
-  }, [loadModuleData]);
-
-  // Complete module handler
-  const handleMarkComplete = async () => {
-    if (isCompleting) return;
-    setIsCompleting(true);
-
+    setNotFound(false);
     try {
-      await api.completeModule(moduleId);
-      success('Module completed! Next module unlocked.');
-      navigate('/dashboard');
-    } catch (err) {
-      setIsCompleting(false);
-      toastError(err.message || 'Unable to complete module. Please try again.');
+      const res = await api.getRoadmap();
+      const currentRoadmap = res?.data?.roadmap;
+      setRoadmap(currentRoadmap);
+
+      const foundModule = (currentRoadmap?.modules || []).find((m) => m.moduleId === moduleId);
+
+      if (!foundModule) {
+        setNotFound(true);
+        return;
+      }
+
+      // Locked module check: redirect immediately with info toast
+      if (foundModule.status === 'locked') {
+        toast.info('This module is locked. Complete previous modules to unlock it.');
+        navigate('/dashboard', { replace: true });
+        return;
+      }
+
+      setModule(foundModule);
+    } catch {
+      setNotFound(true);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 1. Loading State
+  useEffect(() => {
+    fetchModuleData();
+  }, [moduleId]);
+
+  const handleCompleteModule = async () => {
+    if (!module || module.status !== 'active') return;
+    if (completingRef.current || completing) return;
+
+    completingRef.current = true;
+    setCompleting(true);
+
+    try {
+      const res = await api.completeModule(moduleId);
+      const newScore =
+        res?.data?.readinessScore ||
+        res?.data?.roadmap?.readinessScore ||
+        roadmap?.readinessScore ||
+        0;
+
+      toast.success(`Module completed! New readiness score: ${newScore}%`);
+
+      // Update local state to complete
+      setModule((prev) => ({ ...prev, status: 'complete' }));
+      if (res?.data?.roadmap) {
+        setRoadmap(res.data.roadmap);
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to mark module as complete');
+    } finally {
+      setCompleting(false);
+      completingRef.current = false;
+    }
+  };
+
+  const getResourceTypeIcon = (type) => {
+    switch (type) {
+      case 'video':
+        return '▶';
+      case 'docs':
+        return '📄';
+      case 'article':
+        return '📰';
+      default:
+        return '🔗';
+    }
+  };
+
   if (loading) {
     return (
-      <main id="main-content" className="pf-module-detail-page" aria-busy="true">
-        <div className="pf-module-back-bar">
-          <Skeleton width="140px" height="24px" />
+      <Layout maxWidth="800px">
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 'var(--space-8) 0',
+            gap: 'var(--space-2)'
+          }}
+        >
+          <Spinner size="lg" />
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+            Loading module curriculum...
+          </span>
         </div>
-
-        <div className="pf-module-card">
-          <Skeleton width="100px" height="20px" />
-          <Skeleton width="70%" height="32px" />
-          <Skeleton lines={3} height="20px" />
-          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-            <Skeleton width="90px" height="26px" />
-            <Skeleton width="90px" height="26px" />
-          </div>
-        </div>
-
-        <div className="pf-module-resources-section">
-          <Skeleton width="200px" height="24px" />
-          <Skeleton width="100%" height="60px" style={{ marginBottom: '10px' }} />
-          <Skeleton width="100%" height="60px" />
-        </div>
-      </main>
+      </Layout>
     );
   }
 
-  // 2. Error State
-  if (error) {
+  if (notFound || !module) {
     return (
-      <main id="main-content" className="pf-module-detail-page">
-        <ErrorState
-          title="Failed to Load Module"
-          message={
-            error.message ||
-            'We encountered an issue loading this module. Please try again.'
-          }
-          onRetry={handleRetry}
-          retryLabel="Try Again"
-        />
-      </main>
+      <Layout maxWidth="800px">
+        <div style={{ padding: 'var(--space-8) 0' }}>
+          <EmptyState
+            title="Module Not Found"
+            description={`No module with identifier "${moduleId}" exists in your active curriculum.`}
+            actionLabel="Back to Dashboard"
+            onAction={() => navigate('/dashboard')}
+          />
+        </div>
+      </Layout>
     );
   }
 
-  if (!currentModule) {
-    return null;
-  }
-
-  const prevModule = currentIndex > 0 ? modules[currentIndex - 1] : null;
-  const nextModule = currentIndex < modules.length - 1 ? modules[currentIndex + 1] : null;
-
-  const isActive = currentModule.status === 'active';
-  const isComplete = currentModule.status === 'complete';
+  const isActive = module.status === 'active';
+  const isComplete = module.status === 'complete';
 
   return (
-    <main id="main-content" className="pf-module-detail-page">
-      {/* Back Link Bar */}
-      <nav className="pf-module-back-bar" aria-label="Breadcrumb">
-        <Link to="/dashboard" className="pf-module-back-link">
-          ← Back to Curriculum Dashboard
-        </Link>
-      </nav>
-
-      {/* Module Overview Card */}
-      <article className="pf-module-card">
-        <div className="pf-module-header-top">
-          <div className="pf-module-title-group">
-            <span className="pf-module-step-number">
-              Module {currentIndex + 1} of {modules.length}
-            </span>
-            <h1 className="pf-module-title">{currentModule.title}</h1>
-          </div>
-
-          <div
-            className={`pf-module-status-badge pf-module-status-badge--${currentModule.status}`}
+    <Layout maxWidth="800px">
+      <div style={{ padding: 'var(--space-4) 0 var(--space-8)' }}>
+        {/* Back Navigation Link */}
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <Link
+            to="/dashboard"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'var(--color-primary)',
+              textDecoration: 'none'
+            }}
           >
-            <StatusCircle status={currentModule.status} size="18px" />
-            <span>{isActive ? 'In Progress' : isComplete ? 'Completed' : 'Locked'}</span>
+            ← Back to Dashboard
+          </Link>
+        </div>
+
+        {/* Module Header Card */}
+        <Card style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-1)',
+              marginBottom: 'var(--space-1)'
+            }}
+          >
+            <StatusCircle status={module.status} size="sm" />
+
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: isActive
+                  ? 'var(--color-primary)'
+                  : isComplete
+                    ? 'var(--color-success)'
+                    : 'var(--color-text-muted)'
+              }}
+            >
+              {module.status} Module
+            </span>
+
+            <span style={{ color: 'var(--color-border)' }}>•</span>
+
+            <span
+              style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600 }}
+            >
+              {module.estimatedHours} hours
+            </span>
+
+            {/* Complete Badge */}
+            {isComplete && (
+              <span
+                style={{
+                  marginLeft: 'auto',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  backgroundColor: 'var(--color-success-bg)',
+                  color: 'var(--color-success-700)',
+                  border: '1px solid var(--color-success-border)',
+                  padding: '3px 10px',
+                  borderRadius: 'var(--radius-full)'
+                }}
+              >
+                Completed ✓
+              </span>
+            )}
+          </div>
+
+          <h1
+            style={{
+              fontSize: '1.75rem',
+              fontWeight: 800,
+              color: 'var(--color-neutral-900)',
+              marginBottom: 'var(--space-1)'
+            }}
+          >
+            {module.title}
+          </h1>
+
+          <p
+            style={{
+              fontSize: '1rem',
+              color: 'var(--color-text-body)',
+              lineHeight: 1.6,
+              marginBottom: 'var(--space-3)'
+            }}
+          >
+            {module.description}
+          </p>
+
+          {/* Resource Tags */}
+          {module.resourceTags && module.resourceTags.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {module.resourceTags.map((tag) => (
+                <span
+                  key={tag}
+                  style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    backgroundColor: 'var(--color-primary-50)',
+                    color: 'var(--color-primary-800)',
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-full)',
+                    border: '1px solid var(--color-primary-200)'
+                  }}
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Curated Resources List */}
+        <div style={{ marginBottom: 'var(--space-5)' }}>
+          <h2
+            style={{
+              fontSize: '1.25rem',
+              fontWeight: 800,
+              color: 'var(--color-neutral-900)',
+              marginBottom: 'var(--space-1)'
+            }}
+          >
+            Curated Learning Resources
+          </h2>
+
+          <p
+            style={{
+              fontSize: '0.875rem',
+              color: 'var(--color-text-muted)',
+              marginBottom: 'var(--space-3)'
+            }}
+          >
+            Study the official documentation and guides before marking this milestone complete:
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            {(module.resources || []).map((res, idx) => (
+              <a
+                key={idx}
+                href={res.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <Card
+                  interactive
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: 'var(--space-2) var(--space-3)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-lg)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <span
+                      style={{
+                        fontSize: '1.25rem',
+                        width: '36px',
+                        height: '36px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'var(--color-surface-subtle)',
+                        borderRadius: 'var(--radius-md)'
+                      }}
+                    >
+                      {getResourceTypeIcon(res.type)}
+                    </span>
+
+                    <div>
+                      <h4
+                        style={{
+                          fontSize: '0.9375rem',
+                          fontWeight: 700,
+                          color: 'var(--color-neutral-900)',
+                          marginBottom: '2px'
+                        }}
+                      >
+                        {res.title}
+                      </h4>
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          textTransform: 'uppercase',
+                          fontWeight: 600,
+                          color: 'var(--color-text-muted)'
+                        }}
+                      >
+                        {res.type}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span
+                    style={{
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: 'var(--color-primary)'
+                    }}
+                  >
+                    Open Resource ↗
+                  </span>
+                </Card>
+              </a>
+            ))}
           </div>
         </div>
 
-        <p className="pf-module-desc">{currentModule.description}</p>
-
-        <div className="pf-module-meta-row">
-          {currentModule.estimatedHours && (
-            <span className="pf-module-estimate-pill">
-              ⏱ {currentModule.estimatedHours} hours estimated
-            </span>
-          )}
-
-          {currentModule.resourceTags?.map((tag, idx) => (
-            <span key={idx} className="pf-module-tag-chip">
-              #{tag}
-            </span>
-          ))}
-        </div>
-      </article>
-
-      {/* Completion Action / State Card */}
-      {isActive && (
-        <section className="pf-module-action-card" aria-label="Module Progress Action">
-          <div className="pf-module-action-info">
-            <h2 className="pf-module-action-title">Ready to Complete this Module?</h2>
-            <p className="pf-module-action-desc">
-              Finished studying the materials? Mark this module complete to unlock the
-              next milestone in your roadmap.
+        {/* Actions Bar */}
+        <Card
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: 'var(--space-3)',
+            backgroundColor: 'var(--color-surface-subtle)',
+            border: '1px solid var(--color-border)',
+            gap: 'var(--space-2)'
+          }}
+        >
+          <div>
+            <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-neutral-900)' }}>
+              {isComplete
+                ? 'Module Completed'
+                : isActive
+                  ? 'Ready to complete this milestone?'
+                  : 'Module Inactive'}
+            </h4>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+              {isComplete
+                ? 'You have mastered this module! Continue forward on your roadmap.'
+                : isActive
+                  ? 'Marking complete recalculates your readiness metric and unlocks the next module.'
+                  : ''}
             </p>
           </div>
 
-          <div className="pf-module-action-buttons">
-            {enableCheckpoint && (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 'var(--space-2)',
+              alignItems: 'center'
+            }}
+          >
+            {/* Mark as complete (active only) */}
+            {isActive && (
               <Button
-                type="button"
-                variant="secondary"
+                variant="primary"
                 size="md"
-                onClick={() => navigate(`/checkpoint/${encodeURIComponent(moduleId)}`)}
+                loading={completing}
+                disabled={completing}
+                onClick={handleCompleteModule}
               >
-                Take Checkpoint Quiz
+                Mark as Complete ✓
               </Button>
             )}
 
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              loading={isCompleting}
-              disabled={isCompleting}
-              onClick={handleMarkComplete}
-            >
-              ✓ Mark as Complete
-            </Button>
+            {/* Back to dashboard */}
+            <Link to="/dashboard">
+              <Button variant="outline" size="md">
+                Back to Dashboard
+              </Button>
+            </Link>
+
+            {/* Hidden Checkpoint Quiz behind VITE_ENABLE_CHECKPOINT */}
+            {enableCheckpoint && (isActive || isComplete) && (
+              <Link to={`/checkpoint/${module.moduleId}`}>
+                <Button variant="secondary" size="md">
+                  Take checkpoint quiz
+                </Button>
+              </Link>
+            )}
           </div>
-        </section>
-      )}
-
-      {isComplete && (
-        <section
-          className="pf-module-completed-banner"
-          aria-label="Module Completion Status"
-        >
-          <div className="pf-module-completed-left">
-            <div className="pf-module-completed-icon" aria-hidden="true">
-              ✓
-            </div>
-            <div>
-              <h2 className="pf-module-completed-title">Milestone Complete!</h2>
-              <p className="pf-module-completed-desc">
-                You have successfully completed this module. Review the resources anytime
-                or advance to subsequent coursework.
-              </p>
-            </div>
-          </div>
-
-          {enableCheckpoint && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => navigate(`/checkpoint/${encodeURIComponent(moduleId)}`)}
-            >
-              Review Checkpoint Quiz
-            </Button>
-          )}
-        </section>
-      )}
-
-      {/* Curated Resources Section */}
-      <section
-        className="pf-module-resources-section"
-        aria-label="Curated Learning Materials"
-      >
-        <div className="pf-module-resources-heading">
-          <h2 className="pf-module-resources-title">
-            Curated Learning Resources ({currentModule.resources?.length || 0})
-          </h2>
-          <p className="pf-module-resources-sub">
-            Review these handpicked materials to master the topics in this module.
-          </p>
-        </div>
-
-        <div className="pf-module-resource-list" role="list">
-          {currentModule.resources?.map((res, idx) => (
-            <a
-              key={idx}
-              href={res.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pf-module-resource-card"
-              role="listitem"
-              aria-label={`${res.title} (${res.type || 'resource'}), opens in new tab`}
-            >
-              <div className="pf-module-resource-left">
-                <span className="pf-module-resource-icon" aria-hidden="true">
-                  {getResourceIcon(res.type)}
-                </span>
-                <div className="pf-module-resource-info">
-                  <span className="pf-module-resource-title">{res.title}</span>
-                  <span className="pf-module-resource-type">
-                    {res.type || 'Resource'}
-                  </span>
-                </div>
-              </div>
-
-              <span className="pf-module-resource-arrow" aria-hidden="true">
-                ↗
-              </span>
-            </a>
-          ))}
-        </div>
-      </section>
-
-      {/* Previous / Next Module Navigation Bar */}
-      <footer className="pf-module-nav-bar" aria-label="Module Navigation">
-        <div className="pf-module-nav-prev">
-          {prevModule && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                navigate(`/module/${encodeURIComponent(prevModule.moduleId)}`)
-              }
-              aria-label={`Go to previous module: ${prevModule.title}`}
-            >
-              ← Previous: {prevModule.title}
-            </Button>
-          )}
-        </div>
-
-        <div className="pf-module-nav-next">
-          {nextModule && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={nextModule.status === 'locked'}
-              onClick={() => {
-                if (nextModule.status !== 'locked') {
-                  navigate(`/module/${encodeURIComponent(nextModule.moduleId)}`);
-                }
-              }}
-              title={
-                nextModule.status === 'locked'
-                  ? 'Complete current module to unlock'
-                  : undefined
-              }
-              aria-label={
-                nextModule.status === 'locked'
-                  ? `Next module: ${nextModule.title} (Locked)`
-                  : `Go to next module: ${nextModule.title}`
-              }
-            >
-              Next: {nextModule.title} {nextModule.status === 'locked' ? '🔒' : '→'}
-            </Button>
-          )}
-        </div>
-      </footer>
-    </main>
+        </Card>
+      </div>
+    </Layout>
   );
 }
+
+export default ModuleDetailPage;

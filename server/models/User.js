@@ -1,33 +1,45 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Name is required'],
-    trim: true,
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'User name is required'],
+      trim: true,
+      maxlength: [100, 'User name cannot exceed 100 characters']
+    },
+    email: {
+      type: String,
+      required: [true, 'User email is required'],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+      match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address']
+    },
+    passwordHash: {
+      type: String,
+      required: [true, 'Password hash is required'],
+      select: false
+    },
+    roleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      ref: 'Role'
+    }
   },
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    lowercase: true,
-    trim: true,
-    index: true,
-  },
-  passwordHash: {
-    type: String,
-    required: [true, 'Password hash is required'],
-  },
-  targetRole: {
-    type: String,
-    default: null,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+  {
+    timestamps: true,
+    toJSON: {
+      transform(doc, ret) {
+        delete ret.__v;
+        delete ret.passwordHash;
+        return ret;
+      }
+    }
+  }
+);
 
 const User = mongoose.model('User', userSchema);
 
-module.exports = User;
+export default User;

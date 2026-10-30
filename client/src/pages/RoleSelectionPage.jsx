@@ -1,250 +1,337 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import * as api from '../services/api.js';
+import { Layout } from '../components/Layout.jsx';
+import { Card } from '../components/Card.jsx';
+import { Button } from '../components/Button.jsx';
+import { Skeleton } from '../components/Skeleton.jsx';
+import { ErrorState } from '../components/ErrorState.jsx';
+import { EmptyState } from '../components/EmptyState.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { usePageTitle } from '../hooks/usePageTitle.js';
-import { Button, Skeleton, EmptyState, ErrorState } from '../components/index.js';
-import './RoleSelectionPage.css';
+import { api } from '../services/api.js';
 
-export default function RoleSelectionPage() {
-  const { user, refreshUser } = useAuth();
+export function RoleSelectionPage() {
+  usePageTitle('Select Career Role');
+  const [roles, setRoles] = useState([]);
+  const [selectedRoleId, setSelectedRoleId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  const { user, setUser } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  usePageTitle('Choose Career Target');
 
-  const [roles, setRoles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedRoleId, setSelectedRoleId] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const userRoleId = user?.roleId || user?.targetRole;
-
-  // Initial load
-  useEffect(() => {
-    let ignore = false;
-
-    api
-      .getRoles()
-      .then((data) => {
-        if (!ignore) {
-          const loadedRoles = data?.roles || [];
-          setRoles(loadedRoles);
-          if (userRoleId) {
-            const matching = loadedRoles.find(
-              (r) => r.id === userRoleId || r.name === userRoleId || r.title === userRoleId,
-            );
-            if (matching) {
-              setSelectedRoleId(matching.id);
-            }
-          }
-        }
-      })
-      .catch((err) => {
-        if (!ignore) {
-          const msg = err?.message || 'Failed to load available roles. Please try again.';
-          setError(msg);
-          toast.error(msg);
-        }
-      })
-      .finally(() => {
-        if (!ignore) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [userRoleId, toast]);
-
-  // Retry action for ErrorState
-  const handleRetry = () => {
+  const fetchRoles = async () => {
     setLoading(true);
     setError(null);
-    api
-      .getRoles()
-      .then((data) => {
-        const loadedRoles = data?.roles || [];
-        setRoles(loadedRoles);
-        if (userRoleId) {
-          const matching = loadedRoles.find(
-            (r) => r.id === userRoleId || r.name === userRoleId || r.title === userRoleId,
-          );
-          if (matching) {
-            setSelectedRoleId(matching.id);
-          }
-        }
-      })
-      .catch((err) => {
-        const msg = err?.message || 'Failed to load available roles. Please try again.';
-        setError(msg);
-        toast.error(msg);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    try {
+      const res = await api.getRoles();
+      const rolesList = res?.data?.roles || [];
+      setRoles(rolesList);
+      if (user?.roleId) {
+        setSelectedRoleId(user.roleId);
+      } else if (rolesList.length > 0) {
+        setSelectedRoleId(rolesList[0]._id || rolesList[0].id);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to load career roles');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleContinue = async () => {
-    if (!selectedRoleId || submitting) return; // Double-submit prevention
+  useEffect(() => {
+    fetchRoles();
+  }, []);
+
+  const handleKeyDownCard = (e, roleId) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setSelectedRoleId(roleId);
+    }
+  };
+
+  const handleConfirmRole = async () => {
+    if (!selectedRoleId) {
+      toast.warning('Please select a career role to continue');
+      return;
+    }
 
     setSubmitting(true);
     try {
-      await api.setUserRole(selectedRoleId);
-      await refreshUser();
-      toast.success('Role selected! Preparing diagnostic assessment.');
-      navigate(`/diagnostic/${encodeURIComponent(selectedRoleId)}`);
+      const res = await api.setUserRole({ roleId: selectedRoleId });
+      if (res?.data?.user) {
+        setUser(res.data.user);
+      }
+      toast.success('Career path confirmed! Initializing diagnostic assessment...');
+      navigate('/diagnostic');
     } catch (err) {
-      const msg = err?.message || 'Unable to save your role selection. Please try again.';
-      toast.error(msg);
+      toast.error(err.message || 'Failed to assign career role');
+    } finally {
       setSubmitting(false);
     }
   };
 
-  // Find existing role title if user already has an active track
-  const currentRole = userRoleId
-    ? roles.find(
-        (r) => r.id === userRoleId || r.name === userRoleId || r.title === userRoleId,
-      ) || { title: userRoleId }
-    : null;
-
   return (
-    <main id="main-content" className="pf-role-selection">
-      <header className="pf-role-selection__header">
-        <h1 id="roles-heading" className="pf-role-selection__title">
-          Choose Your Career Target
-        </h1>
-        <p className="pf-role-selection__subtitle">
-          Select the engineering or analytics track you want to prepare for. Your
-          diagnostic and generated roadmap will be calibrated directly to this role.
-        </p>
-      </header>
-
-      {/* Notice if user already has a role & roadmap */}
-      {currentRole && (
-        <div role="status" aria-live="polite" className="pf-role-selection__notice">
-          <span className="pf-role-selection__notice-icon" aria-hidden="true">
-            ℹ️
-          </span>
-          <div>
-            <strong>Notice: Active Roadmap in Progress</strong>
-            <p style={{ marginTop: 'var(--space-0-5)' }}>
-              You currently have an active roadmap for{' '}
-              <strong>{currentRole.title}</strong>. Selecting a different role will
-              replace your current roadmap and require completing that track&apos;s
-              diagnostic assessment.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* 1. Loading State with Skeletons */}
-      {loading && (
-        <div
-          className="pf-role-selection__grid"
-          role="status"
-          aria-label="Loading available career tracks"
-        >
-          <Skeleton variant="card" height="240px" />
-          <Skeleton variant="card" height="240px" />
-        </div>
-      )}
-
-      {/* 2. Error State with Retry Button */}
-      {!loading && error && (
-        <ErrorState
-          title="Could not load roles"
-          message={error}
-          onRetry={handleRetry}
-          retryLabel="Retry Loading Roles"
-        />
-      )}
-
-      {/* 3. Empty State */}
-      {!loading && !error && roles.length === 0 && (
-        <EmptyState
-          icon="🎯"
-          title="No roles available yet"
-          message="There are currently no active roles published. Please check back shortly or retry."
-          action={
-            <Button variant="primary" onClick={handleRetry}>
-              Refresh Roles
-            </Button>
-          }
-        />
-      )}
-
-      {/* 4. Success State (Selectable Cards) */}
-      {!loading && !error && roles.length > 0 && (
-        <>
-          <div
-            className="pf-role-selection__grid"
-            role="radiogroup"
-            aria-labelledby="roles-heading"
+    <Layout maxWidth="860px">
+      <div style={{ padding: 'var(--space-4) 0 var(--space-8)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
+          <span
+            style={{
+              fontSize: '0.8125rem',
+              fontWeight: 700,
+              color: 'var(--color-primary-700)',
+              backgroundColor: 'var(--color-primary-50)',
+              padding: '4px 12px',
+              borderRadius: 'var(--radius-full)',
+              border: '1px solid var(--color-primary-200)'
+            }}
           >
-            {roles.map((role) => {
-              const isSelected = selectedRoleId === role.id;
-              const inputId = `role-opt-${role.id}`;
+            Step 1 of 3: Target Role
+          </span>
+          <h1
+            style={{
+              fontSize: '2rem',
+              fontWeight: 800,
+              color: 'var(--color-neutral-900)',
+              marginTop: 'var(--space-1)',
+              marginBottom: 'var(--space-1)'
+            }}
+          >
+            Choose Your Career Trajectory
+          </h1>
+          <p style={{ color: 'var(--color-text-muted)', maxWidth: '580px', margin: '0 auto' }}>
+            Select the technical role you want to prepare for. PathForge will assess your baseline
+            skills across 4 key dimensions and generate an adaptive curriculum.
+          </p>
+        </div>
 
-              return (
-                <label
-                  key={role.id}
-                  htmlFor={inputId}
-                  className={`pf-role-card ${isSelected ? 'pf-role-card--selected' : ''}`}
-                >
-                  <input
-                    id={inputId}
-                    type="radio"
-                    name="careerRole"
-                    value={role.id}
-                    checked={isSelected}
-                    disabled={submitting}
-                    onChange={() => setSelectedRoleId(role.id)}
-                    className="sr-only"
-                  />
-
-                  <div className="pf-role-card__header">
-                    <h2 className="pf-role-card__title">{role.title}</h2>
-                    <span className="pf-role-card__check-indicator" aria-hidden="true">
-                      ✓
-                    </span>
-                  </div>
-
-                  <p className="pf-role-card__desc">{role.description}</p>
-
-                  <div>
-                    <div className="pf-role-card__dimensions-header">
-                      Core Dimensions Evaluated:
-                    </div>
-                    <div className="pf-role-card__chips">
-                      {(role.dimensions || []).map((dim, idx) => (
-                        <span key={idx} className="pf-role-card__chip">
-                          {dim}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </label>
-              );
-            })}
-          </div>
-
-          <div className="pf-role-selection__actions">
-            <Button
-              type="button"
-              variant="primary"
-              size="lg"
-              disabled={!selectedRoleId || submitting}
-              loading={submitting}
-              onClick={handleContinue}
+        {/* Skeleton Loading State */}
+        {loading ? (
+          <div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: 'var(--space-3)',
+                marginBottom: 'var(--space-6)'
+              }}
             >
-              Continue to Diagnostic →
-            </Button>
+              {[1, 2].map((i) => (
+                <Card
+                  key={i}
+                  style={{
+                    padding: 'var(--space-4)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 'var(--space-2)'
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <Skeleton variant="text" width="55%" height="1.5rem" />
+                    <Skeleton variant="circle" width="20px" height="20px" />
+                  </div>
+                  <Skeleton variant="rect" width="100%" height="48px" />
+                  <Skeleton
+                    variant="text"
+                    width="40%"
+                    height="0.875rem"
+                    style={{ marginTop: 'var(--space-2)' }}
+                  />
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <Skeleton variant="text" width="80px" height="24px" />
+                    <Skeleton variant="text" width="70px" height="24px" />
+                    <Skeleton variant="text" width="90px" height="24px" />
+                    <Skeleton variant="text" width="75px" height="24px" />
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Skeleton variant="rect" width="240px" height="44px" />
+            </div>
           </div>
-        </>
-      )}
-    </main>
+        ) : error ? (
+          /* Error State with Retry */
+          <ErrorState title="Failed to Load Career Roles" message={error} onRetry={fetchRoles} />
+        ) : roles.length === 0 ? (
+          /* Empty Database State */
+          <EmptyState
+            title="No Career Roles Available"
+            description="No roles are currently configured in the database. Please check back later."
+          />
+        ) : (
+          /* Role Cards Grid */
+          <div>
+            <div
+              role="radiogroup"
+              aria-label="Target Career Roles"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: 'var(--space-3)',
+                marginBottom: 'var(--space-6)'
+              }}
+            >
+              {roles.map((role) => {
+                const roleId = role._id || role.id;
+                const isSelected = selectedRoleId === roleId;
+
+                return (
+                  <div
+                    key={roleId}
+                    role="radio"
+                    aria-checked={isSelected}
+                    aria-label={role.name}
+                    tabIndex={0}
+                    onClick={() => setSelectedRoleId(roleId)}
+                    onKeyDown={(e) => handleKeyDownCard(e, roleId)}
+                    style={{
+                      border: isSelected
+                        ? '2px solid var(--color-primary)'
+                        : '1px solid var(--color-border)',
+                      backgroundColor: isSelected
+                        ? 'var(--color-primary-50)'
+                        : 'var(--color-surface)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: 'var(--space-4)',
+                      boxShadow: isSelected ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      transition: 'all 0.15s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      minHeight: '260px'
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: 'var(--space-1)'
+                        }}
+                      >
+                        <h2
+                          style={{
+                            fontSize: '1.25rem',
+                            fontWeight: 800,
+                            color: 'var(--color-neutral-900)'
+                          }}
+                        >
+                          {role.name}
+                        </h2>
+
+                        <div
+                          style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            border: isSelected
+                              ? '6px solid var(--color-primary)'
+                              : '2px solid var(--color-neutral-300)',
+                            backgroundColor: 'var(--color-surface)',
+                            transition: 'border 0.15s ease'
+                          }}
+                        />
+                      </div>
+
+                      <p
+                        style={{
+                          fontSize: '0.875rem',
+                          color: 'var(--color-text-body)',
+                          marginBottom: 'var(--space-3)',
+                          lineHeight: 1.5
+                        }}
+                      >
+                        {role.description}
+                      </p>
+                    </div>
+
+                    <div>
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          color: 'var(--color-text-muted)',
+                          display: 'block',
+                          marginBottom: 'var(--space-1)'
+                        }}
+                      >
+                        Evaluated Skill Dimensions
+                      </span>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {(role.dimensions || []).map((dim) => {
+                          const dimId = typeof dim === 'object' ? dim.id || dim.name : dim;
+                          const dimName = typeof dim === 'object' ? dim.name || dim.id : dim;
+
+                          return (
+                            <span
+                              key={dimId}
+                              style={{
+                                fontSize: '0.75rem',
+                                padding: '3px 8px',
+                                borderRadius: 'var(--radius-sm)',
+                                backgroundColor: isSelected
+                                  ? 'var(--color-primary-100)'
+                                  : 'var(--color-surface-subtle)',
+                                color: isSelected
+                                  ? 'var(--color-primary-900)'
+                                  : 'var(--color-neutral-700)',
+                                fontWeight: 600,
+                                border: `1px solid ${
+                                  isSelected ? 'var(--color-primary-200)' : 'var(--color-border)'
+                                }`
+                              }}
+                            >
+                              {dimName}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+                gap: 'var(--space-2)'
+              }}
+            >
+              <Button
+                variant="primary"
+                size="lg"
+                loading={submitting}
+                onClick={handleConfirmRole}
+                disabled={!selectedRoleId || submitting}
+              >
+                Confirm & Continue to Diagnostic →
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Layout>
   );
 }
+
+export default RoleSelectionPage;

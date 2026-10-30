@@ -1,0 +1,26 @@
+{
+  "name": "pathforge-monorepo",
+  "version": "1.0.0",
+  "description": "PathForge: AI-Powered Personalized Skill Roadmaps for Employability",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "lint": "npm run lint --prefix server",
+    "validate:data": "npm run validate:data --prefix server",
+    "seed": "npm run seed --prefix server",
+    "test": "npm run test --prefix server",
+    "test:coverage": "npm run test:coverage --prefix server",
+    "test:e2e": "npm test --prefix e2e-runner"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2"
+  }
+}

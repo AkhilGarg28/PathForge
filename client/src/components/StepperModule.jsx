@@ -1,94 +1,153 @@
-import { memo } from 'react';
-import StatusCircle from './StatusCircle.jsx';
-import './StepperModule.css';
+import React from 'react';
+import { StatusCircle } from './StatusCircle.jsx';
 
-/**
- * Interactive roadmap step component.
- * Displays progress state, connector lines, estimates, and accessibility attributes.
- * Wrapped in React.memo to prevent re-rendering unchanged modules in the dashboard stepper.
- */
-function StepperModule({
-  title,
-  description,
-  estimatedHours,
-  status = 'locked', // 'locked' | 'active' | 'complete'
+export const StepperModule = React.memo(function StepperModule({
+  module,
+  index = 0,
   isLast = false,
   onClick,
-  className = '',
-  stepNumber,
-  isUpdated = false,
+  className = ''
 }) {
-  const isLocked = status === 'locked';
-
-  const badgeLabels = {
-    locked: 'Locked',
-    active: 'In Progress',
-    complete: 'Completed',
-  };
-
-  const handleClick = (e) => {
-    if (isLocked) {
-      e.preventDefault();
-      return;
-    }
-    onClick?.(e);
-  };
+  const isLocked = module.status === 'locked';
+  const isActive = module.status === 'active';
+  const isComplete = module.status === 'complete';
 
   return (
-    <div className="pf-stepper-wrapper">
+    <div
+      className={className}
+      style={{
+        display: 'flex',
+        position: 'relative',
+        gap: 'var(--space-2)',
+        paddingBottom: isLast ? 0 : 'var(--space-3)'
+      }}
+    >
+      {/* Connecting Timeline Line */}
       {!isLast && (
         <div
-          className={`pf-stepper-connector ${status === 'complete' ? 'pf-stepper-connector--complete' : ''}`}
-          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: '15px',
+            top: '32px',
+            bottom: 0,
+            width: '2px',
+            backgroundColor: isComplete ? 'var(--color-success)' : 'var(--color-border)',
+            zIndex: 0
+          }}
         />
       )}
 
-      <button
-        type="button"
-        disabled={isLocked}
+      {/* Status Circle */}
+      <div style={{ zIndex: 1 }}>
+        <StatusCircle status={module.status} size="md" />
+      </div>
+
+      {/* Content Card */}
+      <div
+        onClick={!isLocked && onClick ? () => onClick(module) : undefined}
+        onKeyDown={
+          !isLocked && onClick
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onClick(module);
+                }
+              }
+            : undefined
+        }
+        role={!isLocked && onClick ? 'button' : undefined}
+        tabIndex={!isLocked && onClick ? 0 : undefined}
         aria-disabled={isLocked}
-        onClick={handleClick}
-        className={`pf-stepper-module pf-stepper-module--${status} ${className}`.trim()}
+        aria-label={`${module.title} (${module.status})`}
+        style={{
+          flex: 1,
+          backgroundColor: isActive
+            ? 'var(--color-surface)'
+            : isComplete
+              ? 'var(--color-surface)'
+              : 'var(--color-surface-subtle)',
+          border: `1px solid ${isActive ? 'var(--color-primary-400)' : 'var(--color-border)'}`,
+          borderRadius: 'var(--radius-lg)',
+          padding: 'var(--space-2)',
+          boxShadow: isActive ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+          cursor: !isLocked && onClick ? 'pointer' : 'default',
+          transition: 'all 0.15s ease'
+        }}
       >
-        <div className="pf-stepper-module__status-col">
-          <StatusCircle status={status} />
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            marginBottom: 'var(--space-0-5)'
+          }}
+        >
+          <span
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: isActive
+                ? 'var(--color-primary)'
+                : isComplete
+                  ? 'var(--color-success)'
+                  : 'var(--color-text-muted)'
+            }}
+          >
+            Module {index + 1} • {module.status}
+          </span>
+          <span
+            style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 500 }}
+          >
+            {module.estimatedHours} hrs
+          </span>
         </div>
 
-        <div className="pf-stepper-module__content">
-          <div className="pf-stepper-module__header">
-            <h3 className="pf-stepper-module__title">
-              {stepNumber ? `${stepNumber}. ` : ''}
-              {title}
-            </h3>
+        <h3
+          style={{
+            fontSize: '1rem',
+            fontWeight: 700,
+            color: isLocked ? 'var(--color-neutral-600)' : 'var(--color-neutral-900)',
+            marginBottom: 'var(--space-0-5)'
+          }}
+        >
+          {module.title}
+        </h3>
 
-            <span
-              className={`pf-stepper-module__badge pf-stepper-module__badge--${status}`}
-            >
-              {badgeLabels[status] || status}
-            </span>
+        <p
+          style={{
+            fontSize: '0.875rem',
+            color: 'var(--color-text-body)',
+            lineHeight: 1.4,
+            marginBottom: 'var(--space-1)'
+          }}
+        >
+          {module.description}
+        </p>
 
-            {isUpdated && (
-              <span className="pf-stepper-module__badge pf-stepper-module__badge--updated">
-                Updated
+        {module.resourceTags && module.resourceTags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-0-5)' }}>
+            {module.resourceTags.map((tag) => (
+              <span
+                key={tag}
+                style={{
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  backgroundColor: 'var(--color-primary-50)',
+                  color: 'var(--color-primary-800)',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-full)'
+                }}
+              >
+                #{tag}
               </span>
-            )}
+            ))}
           </div>
-
-          {description && <p className="pf-stepper-module__desc">{description}</p>}
-
-          <div className="pf-stepper-module__footer">
-            {estimatedHours && <span>⏱ {estimatedHours} hrs estimated</span>}
-
-            {isLocked && (
-              <span className="pf-stepper-module__lock-hint">
-                Complete prior module to unlock
-              </span>
-            )}
-          </div>
-        </div>
-      </button>
+        )}
+      </div>
     </div>
   );
-}
+});
 
-export default memo(StepperModule);
+export default StepperModule;

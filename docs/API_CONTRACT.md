@@ -1,54 +1,1420 @@
-# PathForge - API Contract
+# PathForge API Contract & Schema Specifications
 
-## Authentication & Authorization
-All protected endpoints require an `httpOnly` cookie (`token`) containing a valid JWT signed with `JWT_SECRET`.
-Missing, tampered, or expired tokens result in `401 Unauthorized`.
-
----
-
-## Roadmap Endpoints
-
-### 1. GET `/api/roadmap`
-- **Auth**: Protected (uses `req.user.id` only; client-supplied userIds are ignored).
-- **Success (200)**: Returns user's active, non-archived roadmap.
-- **Not Found (404)**: `{ "message": "No roadmap yet" }` when no active roadmap exists.
-
-### 2. PATCH `/api/roadmap/module/:moduleId/complete`
-- **Auth**: Protected.
-- **Rule**:
-  - Only a module with `status: 'active'` can be completed.
-  - If module is `locked` or already `complete`, returns `400 Bad Request`.
-  - Completing the module sets its status to `'complete'`, unlocks the next `'locked'` module to `'active'`, and recalculates `readinessScore`.
-  - Completing the final module leaves all modules complete with readiness `100`.
-- **Readiness Formula**:
-  $$\text{readinessScore} = \text{round}\left(\frac{\sum_{\text{complete}} \text{estimatedHours}}{\sum_{\text{all}} \text{estimatedHours}} \times 100\right)$$
-- **Success (200)**: Returns updated `{ "roadmap": ... }`.
+> **Single Source of Truth for Frontend, Backend, and AI Code**
+> Adheres strictly to [`docs/PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md). All client applications (React), server endpoints (Express), and AI prompt/fallback engines (Google Gemini) MUST conform to the schemas, response shapes, status codes, and progression rules defined in this document.
+>
+> **No Application Code**: This document serves exclusively as an architectural and interface contract.
 
 ---
 
-## User Profile & Account Endpoints
+## Table of Contents
+1. [Global Conventions & Headers](#1-global-conventions--headers)
+2. [Unified Response Shapes](#2-unified-response-shapes)
+3. [Domain Models & Data Schemas](#3-domain-models--data-schemas)
+   - [Module Shape](#31-module-shape)
+   - [Roadmap Shape](#32-roadmap-shape)
+   - [Readiness Score Calculation Formula](#33-readiness-score-calculation-formula)
+4. [Business & Progression Rules](#4-business--progression-rules)
+5. [Static File Formats](#5-static-file-formats)
+   - [data/questions.json](#51-dataquestionsjson)
+   - [data/checkpoints.json](#52-datacheckpointsjson)
+   - [data/resources.json](#53-dataresourcesjson)
+   - [data/sampleRoadmap.json](#54-datasampleroadmapjson)
+6. [API Endpoints Specification](#6-api-endpoints-specification)
+   - [Authentication Endpoints](#61-authentication-endpoints)
+   - [Role Endpoints](#62-role-endpoints)
+   - [Diagnostic Endpoints](#63-diagnostic-endpoints)
+   - [Roadmap Endpoints](#64-roadmap-endpoints)
+   - [User Profile & Account Endpoints](#65-user-profile--account-endpoints)
+   - [Stretch Endpoints (Checkpoints & Adaptive Re-planning)](#66-stretch-endpoints-checkpoints--adaptive-re-planning)
+7. [Appendix: Mock Data (Response per Endpoint)](#7-appendix-mock-data-response-per-endpoint)
 
-### 1. PATCH `/api/user/profile`
-- **Auth**: Protected.
-- **Body**: `{ "name": "string (2-60 chars)" }`
-- **Validation**: 400 on invalid or missing name.
-- **Success (200)**: `{ "user": { "id", "name", "email", "targetRole" } }`
+---
 
-### 2. PATCH `/api/user/password`
-- **Auth**: Protected.
-- **Body**: `{ "currentPassword": "...", "newPassword": "..." }`
-- **Validation**:
-  - `newPassword` requires min 8 characters, at least 1 letter and 1 number.
-  - Returns `400 Bad Request` if `currentPassword` is incorrect or `newPassword` is weak.
-- **Success (200)**: `{ "message": "Password updated successfully" }`
+## 1. Global Conventions & Headers
 
-### 3. DELETE `/api/user`
-- **Auth**: Protected.
-- **Body**: `{ "password": "..." }`
-- **Validation**: Returns `400 Bad Request` if password is incorrect.
-- **Action**:
-  - Deletes user's `User` record.
-  - Deletes all associated `Roadmap` documents.
-  - Deletes all associated `Diagnostic` documents.
-  - Clears `token` auth cookie.
-- **Success (200)**: `{ "message": "User account and all related data deleted successfully" }`
+- **Base URL**: `/api`
+- **Content-Type**: `application/json` for all request and response bodies.
+- **Authentication**: JWT token transmitted automatically via `httpOnly`, `Secure` (in production), `SameSite=Lax` cookies named `token`.
+- **CORS**: Credentials (`credentials: "include"`) enabled between client origin and backend server.
+- **Data Validation**: Backend must validate request bodies using Zod schemas matching the definitions herein.
+
+---
+
+## 2. Unified Response Shapes
+
+All API responses must strictly adhere to the unified envelope format.
+
+### 2.1 Success Envelope
+```json
+{
+  "success": true,
+  "message": "Human-readable confirmation (optional for pure data retrieval)",
+  "data": {}
+}
+```
+
+### 2.2 Error Envelope
+```json
+{
+  "success": false,
+  "message": "Human-readable summary of the error",
+  "errors": [
+    {
+      "field": "email",
+      "message": "Please enter a valid email address"
+    }
+  ]
+}
+```
+*Note: `errors` is optional and utilized for field-level validation errors or compound failures.*
+
+---
+
+## 3. Domain Models & Data Schemas
+
+### 3.1 Module Shape
+
+Represents an individual step or milestone in a learning roadmap.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `moduleId` | `string` | Unique identifier within the roadmap (e.g. `mod-1`, `mod-2`). |
+| `title` | `string` | Clear, concise module name (e.g. "React State & Hooks Masterclass"). |
+| `description` | `string` | 2-3 sentences explaining learning outcomes and target competencies. |
+| `resourceTags` | `string[]` | Keywords matching relevant learning resources (e.g. `["react", "state", "hooks"]`). |
+| `resources` | `Resource[]` | Array of curated learning assets linked from `resources.json`. |
+| `estimatedHours` | `number` | Estimated study and practice hours (positive integer). |
+| `status` | `string` | Enum: `"locked"` \| `"active"` \| `"complete"`. |
+| `checkpointScore` | `number \| null` | Nullable score (0-100) from associated module checkpoint; `null` if unattempted. |
+
+#### Resource Object
+```typescript
+interface Resource {
+  title: string;
+  url: string;
+  type: "video" | "article" | "docs";
+}
+```
+
+### 3.2 Roadmap Shape
+
+Represents a user's tailored curriculum generated by LLM (Gemini) or Fallback template.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `id` / `_id` | `string` | Unique roadmap document identifier (MongoDB ObjectId string). |
+| `userId` | `string` | Foreign key referencing the authenticated user. |
+| `roleId` | `string` | Role target (`"mern-developer"` \| `"data-analyst"`). |
+| `dimensionScores`| `Record<string, number>` | Key-value pairs mapping dimension keys to score out of 5 (e.g. `0` to `5`). |
+| `modules` | `Module[]` | Ordered array of module items. |
+| `readinessScore` | `number` | Overall calculated readiness percentage (`0` to `100`). |
+| `generatedBy` | `string` | Enum: `"llm"` (Gemini API) \| `"fallback"` (deterministic curriculum). |
+| `createdAt` | `string` | ISO 8601 UTC timestamp. |
+| `updatedAt` | `string` | ISO 8601 UTC timestamp. |
+
+### 3.3 Readiness Score Calculation Formula
+
+The overall readiness score reflects both initial baseline diagnostic capability (40%) and continuous curriculum progress (60%):
+
+$$\text{Readiness} = \text{round}\left( 0.4 \times \left(\frac{\text{avgDimensionScore}}{5} \times 100\right) + 0.6 \times \left(\frac{\text{completedHours}}{\text{totalHours}} \times 100\right) \right)$$
+
+#### Variables:
+- `avgDimensionScore`: Arithmetic mean of the 4 dimension scores from the diagnostic quiz (each scored between 0 and 5).
+- `completedHours`: Sum of `estimatedHours` across all modules where `status === "complete"`.
+- `totalHours`: Sum of `estimatedHours` across all modules in the roadmap. If `totalHours === 0`, module progress evaluates to `0`.
+- Output: Integer rounded using standard half-up rounding, constrained between `0` and `100`.
+
+---
+
+## 4. Business & Progression Rules
+
+1. **Initial Module Statuses**:
+   - Upon roadmap generation (diagnostic submission), `modules[0].status = "active"`.
+   - All subsequent modules `modules[1...n].status = "locked"`.
+2. **Sequential Progression**:
+   - Only a module with `status: "active"` can be marked as complete via `PATCH /api/roadmap/module/:moduleId/complete`.
+   - When module `k` is completed (`status: "complete"`), module `k+1` automatically unlocks (`status: "active"`).
+   - If `modules[k]` is the final module in the array, no subsequent module is unlocked.
+3. **Data Isolation & Tenant Ownership**:
+   - Every user can strictly access and mutate only their own roadmap and diagnostic results.
+   - Enforced by reading `req.user.id` from the decoded JWT payload on authenticated requests.
+4. **Role Change Policy**:
+   - Changing roles (`POST /api/user/role`) updates the user profile record but **does not wipe or alter the existing active roadmap**.
+   - The user continues to retain their existing roadmap until they complete and submit a new diagnostic assessment (`POST /api/diagnostic/submit`) for the newly chosen role.
+
+---
+
+## 5. Static File Formats
+
+Static curriculum files located in `/data/` must conform to these exact schemas.
+
+### 5.1 `data/questions.json`
+
+Contains diagnostic assessments (12 MCQs per role, 3 per dimension).
+> **Security Rule**: The fields `correctIndex` and `explanation` are strictly reserved for server-side score calculation and **MUST NEVER** be returned over client-facing endpoints.
+
+```json
+[
+  {
+    "id": "mern-fe-01",
+    "roleId": "mern-developer",
+    "dimension": "frontend-fundamentals",
+    "question": "What is the primary benefit of React hooks like useEffect?",
+    "options": [
+      "They allow class components to run faster",
+      "They let functional components handle side effects and lifecycle events",
+      "They replace the need for Redux entirely in all cases",
+      "They automatically style DOM elements"
+    ],
+    "correctIndex": 1,
+    "explanation": "useEffect provides functional components the ability to synchronize with external systems and lifecycle stages."
+  }
+]
+```
+
+### 5.2 `data/checkpoints.json`
+
+Module-level progress evaluation quizzes.
+```json
+[
+  {
+    "moduleId": "mern-mod-1",
+    "roleId": "mern-developer",
+    "dimension": "frontend-fundamentals",
+    "questions": [
+      {
+        "id": "cp-mern-01-q1",
+        "question": "Which hook should be used to memoize an expensive calculation?",
+        "options": ["useEffect", "useCallback", "useMemo", "useRef"],
+        "correctIndex": 2,
+        "explanation": "useMemo caches the result of a calculation between re-renders."
+      }
+    ]
+  }
+]
+```
+
+### 5.3 `data/resources.json`
+
+Curated resource repository used to augment module recommendations.
+
+> [!IMPORTANT]
+> **Manual Resource Verification Required**: A human reviewer must manually open every resource URL in `data/resources.json` to verify live web accessibility, content relevance, and ensure zero dead links or paywalls.
+```json
+[
+  {
+    "id": "res-react-docs",
+    "title": "React Official Documentation: Managing State",
+    "url": "https://react.dev/learn/managing-state",
+    "type": "docs",
+    "dimension": "frontend-fundamentals",
+    "tag": "react"
+  },
+  {
+    "id": "res-node-api-video",
+    "title": "Express.js REST API Best Practices",
+    "url": "https://www.youtube.com/watch?v=example",
+    "type": "video",
+    "dimension": "backend-architecture",
+    "tag": "express"
+  },
+  {
+    "id": "res-mongo-index-article",
+    "title": "Optimizing MongoDB Queries with Compound Indexes",
+    "url": "https://www.mongodb.com/developer/products/mongodb/indexing-best-practices/",
+    "type": "article",
+    "dimension": "database-modeling",
+    "tag": "mongodb"
+  }
+]
+```
+
+### 5.4 `data/sampleRoadmap.json`
+
+Pre-curated fallback roadmap returned when AI service encounters an outage or rate limit.
+```json
+{
+  "roleId": "mern-developer",
+  "modules": [
+    {
+      "moduleId": "fallback-mod-1",
+      "title": "Modern React & State Architecture",
+      "description": "Deep-dive into component design, custom hooks, and React 18 concurrency features.",
+      "resourceTags": ["react", "frontend"],
+      "resources": [
+        {
+          "title": "React Official Documentation",
+          "url": "https://react.dev",
+          "type": "docs"
+        }
+      ],
+      "estimatedHours": 12,
+      "status": "active",
+      "checkpointScore": null
+    },
+    {
+      "moduleId": "fallback-mod-2",
+      "title": "REST API Architecture with Express & Node",
+      "description": "Build resilient backends featuring robust error handling, middleware chains, and validation.",
+      "resourceTags": ["express", "node", "backend"],
+      "resources": [
+        {
+          "title": "Express Guide",
+          "url": "https://expressjs.com",
+          "type": "docs"
+        }
+      ],
+      "estimatedHours": 14,
+      "status": "locked",
+      "checkpointScore": null
+    }
+  ]
+}
+```
+
+---
+
+## 6. API Endpoints Specification
+
+### 6.1 Authentication Endpoints
+
+#### `POST /api/auth/signup`
+Creates a new student account, hashes the password with bcryptjs, signs a JWT, and attaches it as an `httpOnly` cookie.
+- **Auth Required**: No (Public)
+- **Request Body**:
+  ```json
+  {
+    "name": "Alex Mercer",
+    "email": "alex.mercer@example.com",
+    "password": "SecurePassword123!"
+  }
+  ```
+- **Success Response** (`201 Created`):
+  - Cookie Set: `token=<jwt>; HttpOnly; Path=/; Max-Age=604800; SameSite=Lax`
+  ```json
+  {
+    "success": true,
+    "message": "Account created successfully",
+    "data": {
+      "user": {
+        "id": "67220cf192ab3c1084ef11a1",
+        "name": "Alex Mercer",
+        "email": "alex.mercer@example.com",
+        "roleId": null
+      }
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Validation failure (e.g. invalid email, password length < 8).
+    ```json
+    {
+      "success": false,
+      "message": "Validation failed",
+      "errors": [{ "field": "password", "message": "Password must be at least 8 characters long" }]
+    }
+    ```
+  - `409 Conflict`: Email already exists.
+    ```json
+    {
+      "success": false,
+      "message": "An account with this email already exists"
+    }
+    ```
+  - `500 Internal Server Error`.
+
+---
+
+#### `POST /api/auth/login`
+Authenticates existing credentials, verifies hash, and sets JWT cookie.
+- **Auth Required**: No (Public)
+- **Request Body**:
+  ```json
+  {
+    "email": "alex.mercer@example.com",
+    "password": "SecurePassword123!"
+  }
+  ```
+- **Success Response** (`200 OK`):
+  - Cookie Set: `token=<jwt>; HttpOnly; Path=/; Max-Age=604800; SameSite=Lax`
+  ```json
+  {
+    "success": true,
+    "message": "Logged in successfully",
+    "data": {
+      "user": {
+        "id": "67220cf192ab3c1084ef11a1",
+        "name": "Alex Mercer",
+        "email": "alex.mercer@example.com",
+        "roleId": "mern-developer"
+      }
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Missing email or password.
+  - `401 Unauthorized`: Invalid credentials.
+    ```json
+    {
+      "success": false,
+      "message": "Invalid email or password"
+    }
+    ```
+  - `500 Internal Server Error`.
+
+---
+
+#### `POST /api/auth/logout`
+Clears the authentication cookie.
+- **Auth Required**: Yes (`token` cookie)
+- **Request Body**: None (`{}`)
+- **Success Response** (`200 OK`):
+  - Cookie Cleared: `token=; HttpOnly; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
+  ```json
+  {
+    "success": true,
+    "message": "Logged out successfully"
+  }
+  ```
+- **Error Responses**:
+  - `401 Unauthorized`: Missing or invalid session.
+  - `500 Internal Server Error`.
+
+---
+
+#### `GET /api/auth/me`
+Retrieves current session identity and role profile.
+- **Auth Required**: Yes (`token` cookie)
+- **Request Body**: None
+- **Success Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "data": {
+      "user": {
+        "id": "67220cf192ab3c1084ef11a1",
+        "name": "Alex Mercer",
+        "email": "alex.mercer@example.com",
+        "roleId": "mern-developer",
+        "createdAt": "2026-10-30T10:15:30.000Z"
+      }
+    }
+  }
+  ```
+- **Error Responses**:
+  - `401 Unauthorized`: Unauthenticated / expired token.
+  - `404 Not Found`: User account no longer exists in database.
+  - `500 Internal Server Error`.
+
+---
+
+### 6.2 Role Endpoints
+
+#### `GET /api/roles`
+Returns all supported career roles and their 4 skill dimensions.
+- **Auth Required**: No (Public)
+- **Request Body**: None
+- **Success Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "data": {
+      "roles": [
+        {
+          "id": "mern-developer",
+          "title": "MERN Developer",
+          "description": "Full-stack development specializing in MongoDB, Express, React, and Node.js.",
+          "dimensions": [
+            { "id": "javascript", "name": "JavaScript" },
+            { "id": "react", "name": "React" },
+            { "id": "node-express", "name": "Node & Express" },
+            { "id": "databases-git", "name": "Databases & Git" }
+          ]
+        },
+        {
+          "id": "data-analyst",
+          "title": "Data Analyst",
+          "description": "Data wrangling, SQL analytics, statistical exploration, and dashboard storytelling.",
+          "dimensions": [
+            { "id": "excel-sql", "name": "Excel & SQL" },
+            { "id": "python", "name": "Python" },
+            { "id": "statistics", "name": "Statistics" },
+            { "id": "data-visualization", "name": "Data Visualization" }
+          ]
+        }
+      ]
+    }
+  }
+  ```
+- **Error Responses**:
+  - `500 Internal Server Error`.
+
+---
+
+#### `POST /api/user/role`
+Updates the targeted role for the authenticated user without destroying any existing roadmap.
+- **Auth Required**: Yes (`token` cookie)
+- **Request Body**:
+  ```json
+  {
+    "roleId": "mern-developer"
+  }
+  ```
+- **Success Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "message": "Role selection updated",
+    "data": {
+      "user": {
+        "id": "67220cf192ab3c1084ef11a1",
+        "name": "Alex Mercer",
+        "email": "alex.mercer@example.com",
+        "roleId": "mern-developer"
+      }
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Invalid or unsupported `roleId`.
+  - `401 Unauthorized`: Not logged in.
+  - `500 Internal Server Error`.
+
+---
+
+### 6.3 Diagnostic Endpoints
+
+#### `GET /api/diagnostic/:roleId`
+Retrieves the 12 diagnostic assessment questions for a role.
+> **Security Requirement**: Does **NOT** expose `correctIndex` or `explanation`.
+- **Auth Required**: Yes (`token` cookie)
+- **URL Parameters**: `roleId` (`"mern-developer"` \| `"data-analyst"`)
+- **Request Body**: None
+- **Success Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "data": {
+      "roleId": "mern-developer",
+      "roleTitle": "MERN Developer",
+      "questions": [
+        {
+          "id": "mern-fe-01",
+          "dimension": "frontend-fundamentals",
+          "question": "What is the primary benefit of React hooks like useEffect?",
+          "options": [
+            "They allow class components to run faster",
+            "They let functional components handle side effects and lifecycle events",
+            "They replace the need for Redux entirely in all cases",
+            "They automatically style DOM elements"
+          ]
+        }
+      ]
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Invalid `roleId` parameter.
+  - `401 Unauthorized`: Session missing or expired.
+  - `404 Not Found`: Diagnostic questions not found for specified role.
+  - `500 Internal Server Error`.
+
+---
+
+#### `POST /api/diagnostic/submit`
+Scores the 12 responses against server-stored answer keys, evaluates dimension scores (0-5 scale), and triggers AI/fallback roadmap generation.
+- **Auth Required**: Yes (`token` cookie)
+- **Request Body**:
+  ```json
+  {
+    "roleId": "mern-developer",
+    "answers": [
+      { "questionId": "mern-fe-01", "selectedIndex": 1 },
+      { "questionId": "mern-fe-02", "selectedIndex": 0 },
+      { "questionId": "mern-fe-03", "selectedIndex": 2 },
+      { "questionId": "mern-be-01", "selectedIndex": 3 },
+      { "questionId": "mern-be-02", "selectedIndex": 1 },
+      { "questionId": "mern-be-03", "selectedIndex": 0 },
+      { "questionId": "mern-db-01", "selectedIndex": 2 },
+      { "questionId": "mern-db-02", "selectedIndex": 1 },
+      { "questionId": "mern-db-03", "selectedIndex": 3 },
+      { "questionId": "mern-fs-01", "selectedIndex": 0 },
+      { "questionId": "mern-fs-02", "selectedIndex": 2 },
+      { "questionId": "mern-fs-03", "selectedIndex": 1 }
+    ]
+  }
+  ```
+- **Success Response** (`201 Created` or `200 OK`):
+  ```json
+  {
+    "success": true,
+    "message": "Diagnostic submitted and roadmap generated successfully",
+    "data": {
+      "roleId": "mern-developer",
+      "dimensionScores": {
+        "frontend-fundamentals": 5.0,
+        "backend-architecture": 3.33,
+        "database-modeling": 1.67,
+        "fullstack-auth": 3.33
+      },
+      "avgDimensionScore": 3.33,
+      "readinessScore": 27,
+      "roadmap": {
+        "id": "6722100a92ab3c1084ef11b5",
+        "userId": "67220cf192ab3c1084ef11a1",
+        "roleId": "mern-developer",
+        "dimensionScores": {
+          "frontend-fundamentals": 5.0,
+          "backend-architecture": 3.33,
+          "database-modeling": 1.67,
+          "fullstack-auth": 3.33
+        },
+        "modules": [
+          {
+            "moduleId": "mod-1",
+            "title": "MongoDB Schema Design & Query Optimization",
+            "description": "Master NoSQL document modeling, relational embeddings vs references, and aggregation pipelines.",
+            "resourceTags": ["mongodb", "database"],
+            "resources": [
+              {
+                "title": "MongoDB Indexing Best Practices",
+                "url": "https://www.mongodb.com/developer/products/mongodb/indexing-best-practices/",
+                "type": "article"
+              }
+            ],
+            "estimatedHours": 10,
+            "status": "active",
+            "checkpointScore": null
+          },
+          {
+            "moduleId": "mod-2",
+            "title": "Production Node & Express API Architecture",
+            "description": "Construct scalable modular REST endpoints with centralized error handling and middleware.",
+            "resourceTags": ["express", "backend"],
+            "resources": [
+              {
+                "title": "Express Guide",
+                "url": "https://expressjs.com",
+                "type": "docs"
+              }
+            ],
+            "estimatedHours": 12,
+            "status": "locked",
+            "checkpointScore": null
+          }
+        ],
+        "readinessScore": 27,
+        "generatedBy": "llm",
+        "createdAt": "2026-10-30T10:20:00.000Z",
+        "updatedAt": "2026-10-30T10:20:00.000Z"
+      }
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Incomplete answers (must be 12 items), invalid option indices, or missing `roleId`.
+  - `401 Unauthorized`: Authentication required.
+  - `500 Internal Server Error`: AI generation and fallback failure.
+
+---
+
+### 6.4 Roadmap Endpoints
+
+#### `GET /api/roadmap`
+Fetches the active learning roadmap for the authenticated user.
+- **Auth Required**: Yes (`token` cookie)
+- **Request Body**: None
+- **Success Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "data": {
+      "roadmap": {
+        "id": "6722100a92ab3c1084ef11b5",
+        "userId": "67220cf192ab3c1084ef11a1",
+        "roleId": "mern-developer",
+        "dimensionScores": {
+          "frontend-fundamentals": 5.0,
+          "backend-architecture": 3.33,
+          "database-modeling": 1.67,
+          "fullstack-auth": 3.33
+        },
+        "modules": [
+          {
+            "moduleId": "mod-1",
+            "title": "MongoDB Schema Design & Query Optimization",
+            "description": "Master NoSQL document modeling, relational embeddings vs references, and aggregation pipelines.",
+            "resourceTags": ["mongodb", "database"],
+            "resources": [
+              {
+                "title": "MongoDB Indexing Best Practices",
+                "url": "https://www.mongodb.com/developer/products/mongodb/indexing-best-practices/",
+                "type": "article"
+              }
+            ],
+            "estimatedHours": 10,
+            "status": "active",
+            "checkpointScore": null
+          },
+          {
+            "moduleId": "mod-2",
+            "title": "Production Node & Express API Architecture",
+            "description": "Construct scalable modular REST endpoints with centralized error handling and middleware.",
+            "resourceTags": ["express", "backend"],
+            "resources": [
+              {
+                "title": "Express Guide",
+                "url": "https://expressjs.com",
+                "type": "docs"
+              }
+            ],
+            "estimatedHours": 12,
+            "status": "locked",
+            "checkpointScore": null
+          }
+        ],
+        "readinessScore": 27,
+        "generatedBy": "llm",
+        "createdAt": "2026-10-30T10:20:00.000Z",
+        "updatedAt": "2026-10-30T10:20:00.000Z"
+      }
+    }
+  }
+  ```
+  *(If user has not completed a diagnostic yet, `roadmap` is `null`)*.
+- **Error Responses**:
+  - `401 Unauthorized`: Not authenticated.
+  - `500 Internal Server Error`.
+
+---
+
+#### `PATCH /api/roadmap/module/:moduleId/complete`
+Marks an active module as complete, unlocks the next consecutive module, and recalculates the readiness score.
+- **Auth Required**: Yes (`token` cookie)
+- **URL Parameters**: `moduleId` (e.g. `mod-1`)
+- **Request Body**:
+  ```json
+  {
+    "completed": true
+  }
+  ```
+- **Success Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "message": "Module marked as complete and next module unlocked",
+    "data": {
+      "completedModuleId": "mod-1",
+      "nextActiveModuleId": "mod-2",
+      "readinessScore": 54,
+      "roadmap": {
+        "id": "6722100a92ab3c1084ef11b5",
+        "userId": "67220cf192ab3c1084ef11a1",
+        "roleId": "mern-developer",
+        "dimensionScores": {
+          "frontend-fundamentals": 5.0,
+          "backend-architecture": 3.33,
+          "database-modeling": 1.67,
+          "fullstack-auth": 3.33
+        },
+        "modules": [
+          {
+            "moduleId": "mod-1",
+            "title": "MongoDB Schema Design & Query Optimization",
+            "description": "Master NoSQL document modeling, relational embeddings vs references, and aggregation pipelines.",
+            "resourceTags": ["mongodb", "database"],
+            "resources": [
+              {
+                "title": "MongoDB Indexing Best Practices",
+                "url": "https://www.mongodb.com/developer/products/mongodb/indexing-best-practices/",
+                "type": "article"
+              }
+            ],
+            "estimatedHours": 10,
+            "status": "complete",
+            "checkpointScore": null
+          },
+          {
+            "moduleId": "mod-2",
+            "title": "Production Node & Express API Architecture",
+            "description": "Construct scalable modular REST endpoints with centralized error handling and middleware.",
+            "resourceTags": ["express", "backend"],
+            "resources": [
+              {
+                "title": "Express Guide",
+                "url": "https://expressjs.com",
+                "type": "docs"
+              }
+            ],
+            "estimatedHours": 12,
+            "status": "active",
+            "checkpointScore": null
+          }
+        ],
+        "readinessScore": 54,
+        "generatedBy": "llm",
+        "createdAt": "2026-10-30T10:20:00.000Z",
+        "updatedAt": "2026-10-30T10:45:00.000Z"
+      }
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Cannot complete a locked module or module is already completed.
+    ```json
+    {
+      "success": false,
+      "message": "Module is locked. You must complete preceding modules first."
+    }
+    ```
+  - `401 Unauthorized`: Session missing or expired.
+  - `404 Not Found`: Module does not exist in user's roadmap.
+  - `500 Internal Server Error`.
+
+---
+
+### 6.5 User Profile & Account Endpoints
+
+#### `PATCH /api/user/profile`
+Updates user details (e.g. display name).
+- **Auth Required**: Yes (`token` cookie)
+- **Request Body**:
+  ```json
+  {
+    "name": "Alexander Mercer"
+  }
+  ```
+- **Success Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "message": "Profile updated successfully",
+    "data": {
+      "user": {
+        "id": "67220cf192ab3c1084ef11a1",
+        "name": "Alexander Mercer",
+        "email": "alex.mercer@example.com",
+        "roleId": "mern-developer"
+      }
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Validation failure (name empty or over 100 characters).
+  - `401 Unauthorized`: Not logged in.
+  - `500 Internal Server Error`.
+
+---
+
+#### `PATCH /api/user/password`
+Updates user password after verifying current credentials.
+- **Auth Required**: Yes (`token` cookie)
+- **Request Body**:
+  ```json
+  {
+    "currentPassword": "SecurePassword123!",
+    "newPassword": "NewSecurePassword456!"
+  }
+  ```
+- **Success Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "message": "Password updated successfully"
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Validation failure (new password < 8 characters or identical to old password).
+  - `401 Unauthorized`: Incorrect `currentPassword`.
+    ```json
+    {
+      "success": false,
+      "message": "Current password does not match"
+    }
+    ```
+  - `500 Internal Server Error`.
+
+---
+
+#### `DELETE /api/user`
+Deletes user account, clears JWT cookie, and cascades deletion to user roadmaps.
+- **Auth Required**: Yes (`token` cookie)
+- **Request Body**:
+  ```json
+  {
+    "password": "NewSecurePassword456!"
+  }
+  ```
+- **Success Response** (`200 OK`):
+  - Cookie Cleared: `token=; HttpOnly; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
+  ```json
+  {
+    "success": true,
+    "message": "User account and all associated roadmaps deleted successfully"
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Missing password confirmation.
+  - `401 Unauthorized`: Incorrect password.
+  - `500 Internal Server Error`.
+
+---
+
+### 6.6 Stretch Endpoints (Checkpoints & Adaptive Re-planning)
+
+> *Post-MVP stretch feature: Not evaluated or invoked until MVP requirements are met.*
+
+#### `GET /api/checkpoint/:moduleId`
+Returns checkpoint quiz questions for the specified module.
+> **Security Requirement**: Does **NOT** expose `correctIndex` or `explanation`.
+- **Auth Required**: Yes (`token` cookie)
+- **URL Parameters**: `moduleId`
+- **Request Body**: None
+- **Success Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "data": {
+      "moduleId": "mod-1",
+      "questions": [
+        {
+          "id": "cp-mern-01-q1",
+          "question": "Which hook should be used to memoize an expensive calculation?",
+          "options": ["useEffect", "useCallback", "useMemo", "useRef"]
+        }
+      ]
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Module is not active or accessible.
+  - `401 Unauthorized`: Authentication required.
+  - `404 Not Found`: No checkpoint found for this module.
+  - `500 Internal Server Error`.
+
+---
+
+#### `POST /api/checkpoint/submit`
+Evaluates checkpoint answers, updates `checkpointScore`, and optionally triggers adaptive module re-planning.
+- **Auth Required**: Yes (`token` cookie)
+- **Request Body**:
+  ```json
+  {
+    "moduleId": "mod-1",
+    "answers": [
+      { "questionId": "cp-mern-01-q1", "selectedIndex": 2 }
+    ]
+  }
+  ```
+- **Success Response** (`200 OK`):
+  ```json
+  {
+    "success": true,
+    "message": "Checkpoint evaluated successfully",
+    "data": {
+      "moduleId": "mod-1",
+      "checkpointScore": 100,
+      "passed": true,
+      "changeSummary": "Mastery confirmed for database indexing. Advanced MongoDB module unlocked early.",
+      "updatedRoadmap": {
+        "id": "6722100a92ab3c1084ef11b5",
+        "userId": "67220cf192ab3c1084ef11a1",
+        "roleId": "mern-developer",
+        "dimensionScores": {
+          "frontend-fundamentals": 5.0,
+          "backend-architecture": 3.33,
+          "database-modeling": 2.5,
+          "fullstack-auth": 3.33
+        },
+        "modules": [
+          {
+            "moduleId": "mod-1",
+            "title": "MongoDB Schema Design & Query Optimization",
+            "description": "Master NoSQL document modeling, relational embeddings vs references, and aggregation pipelines.",
+            "resourceTags": ["mongodb", "database"],
+            "resources": [
+              {
+                "title": "MongoDB Indexing Best Practices",
+                "url": "https://www.mongodb.com/developer/products/mongodb/indexing-best-practices/",
+                "type": "article"
+              }
+            ],
+            "estimatedHours": 10,
+            "status": "complete",
+            "checkpointScore": 100
+          },
+          {
+            "moduleId": "mod-2",
+            "title": "Production Node & Express API Architecture",
+            "description": "Construct scalable modular REST endpoints with centralized error handling and middleware.",
+            "resourceTags": ["express", "backend"],
+            "resources": [
+              {
+                "title": "Express Guide",
+                "url": "https://expressjs.com",
+                "type": "docs"
+              }
+            ],
+            "estimatedHours": 12,
+            "status": "active",
+            "checkpointScore": null
+          }
+        ],
+        "readinessScore": 60,
+        "generatedBy": "llm",
+        "createdAt": "2026-10-30T10:20:00.000Z",
+        "updatedAt": "2026-10-30T11:00:00.000Z"
+      }
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Incomplete answers or invalid selections.
+  - `401 Unauthorized`: Authentication required.
+  - `404 Not Found`: Module or checkpoint not found.
+  - `500 Internal Server Error`.
+
+---
+
+## 7. Appendix: Mock Data (Response per Endpoint)
+
+### 1. `POST /api/auth/signup`
+```json
+{
+  "success": true,
+  "message": "Account created successfully",
+  "data": {
+    "user": {
+      "id": "67220cf192ab3c1084ef11a1",
+      "name": "Jane Doe",
+      "email": "jane.doe@example.com",
+      "roleId": null
+    }
+  }
+}
+```
+
+### 2. `POST /api/auth/login`
+```json
+{
+  "success": true,
+  "message": "Logged in successfully",
+  "data": {
+    "user": {
+      "id": "67220cf192ab3c1084ef11a1",
+      "name": "Jane Doe",
+      "email": "jane.doe@example.com",
+      "roleId": "mern-developer"
+    }
+  }
+}
+```
+
+### 3. `POST /api/auth/logout`
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+### 4. `GET /api/auth/me`
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "67220cf192ab3c1084ef11a1",
+      "name": "Jane Doe",
+      "email": "jane.doe@example.com",
+      "roleId": "mern-developer",
+      "createdAt": "2026-10-30T09:00:00.000Z"
+    }
+  }
+}
+```
+
+### 5. `GET /api/roles`
+```json
+{
+  "success": true,
+  "data": {
+    "roles": [
+      {
+        "id": "mern-developer",
+        "title": "MERN Developer",
+        "description": "Full-stack development specializing in MongoDB, Express, React, and Node.js.",
+        "dimensions": [
+          { "id": "javascript", "name": "JavaScript" },
+          { "id": "react", "name": "React" },
+          { "id": "node-express", "name": "Node & Express" },
+          { "id": "databases-git", "name": "Databases & Git" }
+        ]
+      },
+      {
+        "id": "data-analyst",
+        "title": "Data Analyst",
+        "description": "Data wrangling, SQL analytics, statistical exploration, and dashboard storytelling.",
+        "dimensions": [
+          { "id": "excel-sql", "name": "Excel & SQL" },
+          { "id": "python", "name": "Python" },
+          { "id": "statistics", "name": "Statistics" },
+          { "id": "data-visualization", "name": "Data Visualization" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 6. `POST /api/user/role`
+```json
+{
+  "success": true,
+  "message": "Role selection updated",
+  "data": {
+    "user": {
+      "id": "67220cf192ab3c1084ef11a1",
+      "name": "Jane Doe",
+      "email": "jane.doe@example.com",
+      "roleId": "data-analyst"
+    }
+  }
+}
+```
+
+### 7. `GET /api/diagnostic/:roleId`
+```json
+{
+  "success": true,
+  "data": {
+    "roleId": "data-analyst",
+    "roleTitle": "Data Analyst",
+    "questions": [
+      {
+        "id": "da-dw-01",
+        "dimension": "data-wrangling",
+        "question": "Which pandas method is best suited for replacing null values in a DataFrame with the column mean?",
+        "options": ["df.dropna()", "df.fillna(df.mean())", "df.replace_null()", "df.interpolate(method='linear')"]
+      },
+      {
+        "id": "da-sql-01",
+        "dimension": "sql-databases",
+        "question": "What is the primary difference between RANK() and DENSE_RANK() in SQL window functions?",
+        "options": [
+          "RANK() skips numbers on ties, whereas DENSE_RANK() does not skip rank values",
+          "DENSE_RANK() sorts descending, whereas RANK() sorts ascending",
+          "RANK() only works with integer columns",
+          "There is no difference in modern SQL dialects"
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 8. `POST /api/diagnostic/submit`
+```json
+{
+  "success": true,
+  "message": "Diagnostic submitted and roadmap generated successfully",
+  "data": {
+    "roleId": "data-analyst",
+    "dimensionScores": {
+      "data-wrangling": 4.0,
+      "sql-databases": 5.0,
+      "statistical-analysis": 2.5,
+      "data-visualization": 3.0
+    },
+    "avgDimensionScore": 3.625,
+    "readinessScore": 29,
+    "roadmap": {
+      "id": "6722144d92ab3c1084ef11ce",
+      "userId": "67220cf192ab3c1084ef11a1",
+      "roleId": "data-analyst",
+      "dimensionScores": {
+        "data-wrangling": 4.0,
+        "sql-databases": 5.0,
+        "statistical-analysis": 2.5,
+        "data-visualization": 3.0
+      },
+      "modules": [
+        {
+          "moduleId": "mod-1",
+          "title": "Applied Statistical Inference & Hypothesis Testing",
+          "description": "Learn z-tests, t-tests, ANOVA, and p-value interpretations for product experimentation.",
+          "resourceTags": ["statistics", "hypothesis-testing"],
+          "resources": [
+            {
+              "title": "OpenIntro Statistics",
+              "url": "https://www.openintro.org/book/os/",
+              "type": "docs"
+            }
+          ],
+          "estimatedHours": 14,
+          "status": "active",
+          "checkpointScore": null
+        },
+        {
+          "moduleId": "mod-2",
+          "title": "Executive KPI Dashboards with Tableau & PowerBI",
+          "description": "Design actionable dashboards emphasizing visual hierarchy and data storytelling.",
+          "resourceTags": ["visualization", "dashboards"],
+          "resources": [
+            {
+              "title": "Tableau Visual Guidebook",
+              "url": "https://www.tableau.com/learn",
+              "type": "article"
+            }
+          ],
+          "estimatedHours": 10,
+          "status": "locked",
+          "checkpointScore": null
+        }
+      ],
+      "readinessScore": 29,
+      "generatedBy": "llm",
+      "createdAt": "2026-10-30T10:30:00.000Z",
+      "updatedAt": "2026-10-30T10:30:00.000Z"
+    }
+  }
+}
+```
+
+### 9. `GET /api/roadmap`
+```json
+{
+  "success": true,
+  "data": {
+    "roadmap": {
+      "id": "6722144d92ab3c1084ef11ce",
+      "userId": "67220cf192ab3c1084ef11a1",
+      "roleId": "data-analyst",
+      "dimensionScores": {
+        "data-wrangling": 4.0,
+        "sql-databases": 5.0,
+        "statistical-analysis": 2.5,
+        "data-visualization": 3.0
+      },
+      "modules": [
+        {
+          "moduleId": "mod-1",
+          "title": "Applied Statistical Inference & Hypothesis Testing",
+          "description": "Learn z-tests, t-tests, ANOVA, and p-value interpretations for product experimentation.",
+          "resourceTags": ["statistics", "hypothesis-testing"],
+          "resources": [
+            {
+              "title": "OpenIntro Statistics",
+              "url": "https://www.openintro.org/book/os/",
+              "type": "docs"
+            }
+          ],
+          "estimatedHours": 14,
+          "status": "active",
+          "checkpointScore": null
+        },
+        {
+          "moduleId": "mod-2",
+          "title": "Executive KPI Dashboards with Tableau & PowerBI",
+          "description": "Design actionable dashboards emphasizing visual hierarchy and data storytelling.",
+          "resourceTags": ["visualization", "dashboards"],
+          "resources": [
+            {
+              "title": "Tableau Visual Guidebook",
+              "url": "https://www.tableau.com/learn",
+              "type": "article"
+            }
+          ],
+          "estimatedHours": 10,
+          "status": "locked",
+          "checkpointScore": null
+        }
+      ],
+      "readinessScore": 29,
+      "generatedBy": "llm",
+      "createdAt": "2026-10-30T10:30:00.000Z",
+      "updatedAt": "2026-10-30T10:30:00.000Z"
+    }
+  }
+}
+```
+
+### 10. `PATCH /api/roadmap/module/:moduleId/complete`
+```json
+{
+  "success": true,
+  "message": "Module marked as complete and next module unlocked",
+  "data": {
+    "completedModuleId": "mod-1",
+    "nextActiveModuleId": "mod-2",
+    "readinessScore": 64,
+    "roadmap": {
+      "id": "6722144d92ab3c1084ef11ce",
+      "userId": "67220cf192ab3c1084ef11a1",
+      "roleId": "data-analyst",
+      "dimensionScores": {
+        "data-wrangling": 4.0,
+        "sql-databases": 5.0,
+        "statistical-analysis": 2.5,
+        "data-visualization": 3.0
+      },
+      "modules": [
+        {
+          "moduleId": "mod-1",
+          "title": "Applied Statistical Inference & Hypothesis Testing",
+          "description": "Learn z-tests, t-tests, ANOVA, and p-value interpretations for product experimentation.",
+          "resourceTags": ["statistics", "hypothesis-testing"],
+          "resources": [
+            {
+              "title": "OpenIntro Statistics",
+              "url": "https://www.openintro.org/book/os/",
+              "type": "docs"
+            }
+          ],
+          "estimatedHours": 14,
+          "status": "complete",
+          "checkpointScore": null
+        },
+        {
+          "moduleId": "mod-2",
+          "title": "Executive KPI Dashboards with Tableau & PowerBI",
+          "description": "Design actionable dashboards emphasizing visual hierarchy and data storytelling.",
+          "resourceTags": ["visualization", "dashboards"],
+          "resources": [
+            {
+              "title": "Tableau Visual Guidebook",
+              "url": "https://www.tableau.com/learn",
+              "type": "article"
+            }
+          ],
+          "estimatedHours": 10,
+          "status": "active",
+          "checkpointScore": null
+        }
+      ],
+      "readinessScore": 64,
+      "generatedBy": "llm",
+      "createdAt": "2026-10-30T10:30:00.000Z",
+      "updatedAt": "2026-10-30T11:15:00.000Z"
+    }
+  }
+}
+```
+
+### 11. `PATCH /api/user/profile`
+```json
+{
+  "success": true,
+  "message": "Profile updated successfully",
+  "data": {
+    "user": {
+      "id": "67220cf192ab3c1084ef11a1",
+      "name": "Jane Developer",
+      "email": "jane.doe@example.com",
+      "roleId": "data-analyst"
+    }
+  }
+}
+```
+
+### 12. `PATCH /api/user/password`
+```json
+{
+  "success": true,
+  "message": "Password updated successfully"
+}
+```
+
+### 13. `DELETE /api/user`
+```json
+{
+  "success": true,
+  "message": "User account and all associated roadmaps deleted successfully"
+}
+```
+
+### 14. `GET /api/checkpoint/:moduleId`
+```json
+{
+  "success": true,
+  "data": {
+    "moduleId": "mod-1",
+    "questions": [
+      {
+        "id": "cp-da-stat-01",
+        "question": "When conducting a two-sample t-test with alpha = 0.05, what does a p-value of 0.03 indicate?",
+        "options": [
+          "Reject the null hypothesis; statistically significant difference observed",
+          "Fail to reject the null hypothesis; no significant difference",
+          "The test is invalid due to high variance",
+          "The sample size must be doubled"
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 15. `POST /api/checkpoint/submit`
+```json
+{
+  "success": true,
+  "message": "Checkpoint evaluated successfully",
+  "data": {
+    "moduleId": "mod-1",
+    "checkpointScore": 100,
+    "passed": true,
+    "changeSummary": "Mastery confirmed for Statistical Inference. Advanced Modeling track unlocked.",
+    "updatedRoadmap": {
+      "id": "6722144d92ab3c1084ef11ce",
+      "userId": "67220cf192ab3c1084ef11a1",
+      "roleId": "data-analyst",
+      "dimensionScores": {
+        "data-wrangling": 4.0,
+        "sql-databases": 5.0,
+        "statistical-analysis": 4.0,
+        "data-visualization": 3.0
+      },
+      "modules": [
+        {
+          "moduleId": "mod-1",
+          "title": "Applied Statistical Inference & Hypothesis Testing",
+          "description": "Learn z-tests, t-tests, ANOVA, and p-value interpretations for product experimentation.",
+          "resourceTags": ["statistics", "hypothesis-testing"],
+          "resources": [
+            {
+              "title": "OpenIntro Statistics",
+              "url": "https://www.openintro.org/book/os/",
+              "type": "docs"
+            }
+          ],
+          "estimatedHours": 14,
+          "status": "complete",
+          "checkpointScore": 100
+        },
+        {
+          "moduleId": "mod-2",
+          "title": "Executive KPI Dashboards with Tableau & PowerBI",
+          "description": "Design actionable dashboards emphasizing visual hierarchy and data storytelling.",
+          "resourceTags": ["visualization", "dashboards"],
+          "resources": [
+            {
+              "title": "Tableau Visual Guidebook",
+              "url": "https://www.tableau.com/learn",
+              "type": "article"
+            }
+          ],
+          "estimatedHours": 10,
+          "status": "active",
+          "checkpointScore": null
+        }
+      ],
+      "readinessScore": 72,
+      "generatedBy": "llm",
+      "createdAt": "2026-10-30T10:30:00.000Z",
+      "updatedAt": "2026-10-30T11:20:00.000Z"
+    }
+  }
+}
+```

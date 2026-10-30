@@ -1,41 +1,70 @@
-import './ProgressBar.css';
+import React from 'react';
 
-/**
- * Accessible progress bar utilizing the single amber accent token reserved exclusively
- * for progression tracking across PathForge.
- */
-export default function ProgressBar({
+export function ProgressBar({
   value = 0,
   max = 100,
   label,
-  showValueText = true,
-  size = 'md',
+  showPercentage = true,
+  height = '8px',
   className = '',
+  style = {}
 }) {
-  const clampedValue = Math.min(Math.max(Number(value) || 0, 0), max);
-  const percentage = Math.round((clampedValue / max) * 100);
+  const percentage = Math.min(100, Math.max(0, Math.round((value / max) * 100)));
 
   return (
-    <div className={`pf-progress-container ${className}`.trim()}>
-      {(label || showValueText) && (
-        <div className="pf-progress-header">
+    <div
+      className={className}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-0-5)',
+        width: '100%',
+        ...style
+      }}
+    >
+      {(label || showPercentage) && (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            color: 'var(--color-text-body)'
+          }}
+        >
           {label && <span>{label}</span>}
-          {showValueText && (
-            <span className="pf-progress-header__value">{percentage}%</span>
+          {showPercentage && (
+            <span style={{ color: 'var(--color-accent-600)' }}>{percentage}%</span>
           )}
         </div>
       )}
 
       <div
         role="progressbar"
-        aria-valuenow={clampedValue}
+        aria-valuenow={percentage}
         aria-valuemin={0}
-        aria-valuemax={max}
-        aria-label={label || 'Progress'}
-        className={`pf-progress-track pf-progress-track--${size}`}
+        aria-valuemax={100}
+        style={{
+          width: '100%',
+          height,
+          backgroundColor: 'var(--color-neutral-200)',
+          borderRadius: 'var(--radius-full)',
+          overflow: 'hidden'
+        }}
       >
-        <div className="pf-progress-fill" style={{ width: `${percentage}%` }} />
+        <div
+          style={{
+            width: `${percentage}%`,
+            height: '100%',
+            backgroundColor: 'var(--color-accent)', // Strictly amber accent for progress
+            borderRadius: 'var(--radius-full)',
+            transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+        />
       </div>
     </div>
   );
 }
+
+export default ProgressBar;

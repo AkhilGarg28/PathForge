@@ -1,45 +1,36 @@
-import './Skeleton.css';
+import React from 'react';
 
-/**
- * Animated placeholder shimmer for loading states.
- * Supports 'text', 'card', and 'circle' variants.
- */
-export default function Skeleton({
-  variant = 'text',
-  width,
-  height,
-  lines = 1,
-  className = '',
-  style = {},
-}) {
-  const inlineStyle = {
-    ...(width ? { width } : {}),
-    ...(height ? { height } : {}),
-    ...style,
-  };
-
-  if (variant === 'text' && lines > 1) {
-    return (
-      <div className={`pf-skeleton-text-group ${className}`.trim()} aria-hidden="true">
-        {Array.from({ length: lines }).map((_, index) => (
-          <span
-            key={index}
-            className="pf-skeleton pf-skeleton--text"
-            style={{
-              ...inlineStyle,
-              width: index === lines - 1 && !width ? '70%' : width || '100%',
-            }}
-          />
-        ))}
-      </div>
-    );
-  }
+export function Skeleton({ variant = 'text', width = '100%', height, className = '', style = {} }) {
+  const isCircle = variant === 'circle';
+  const computedHeight = height || (isCircle ? width : variant === 'text' ? '1rem' : '100px');
+  const borderRadius = isCircle
+    ? 'var(--radius-full)'
+    : variant === 'text'
+      ? 'var(--radius-sm)'
+      : 'var(--radius-md)';
 
   return (
-    <span
-      className={`pf-skeleton pf-skeleton--${variant} ${className}`.trim()}
-      style={inlineStyle}
+    <div
+      className={className}
       aria-hidden="true"
-    />
+      style={{
+        display: 'inline-block',
+        width,
+        height: computedHeight,
+        borderRadius,
+        backgroundColor: 'var(--color-neutral-200)',
+        animation: 'pf-pulse 1.5s ease-in-out infinite',
+        ...style
+      }}
+    >
+      <style>{`
+        @keyframes pf-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
+    </div>
   );
 }
+
+export default Skeleton;

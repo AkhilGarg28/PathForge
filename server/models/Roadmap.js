@@ -1,21 +1,25 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const resourceSchema = new mongoose.Schema(
   {
     title: {
       type: String,
       required: [true, 'Resource title is required'],
-      trim: true,
+      trim: true
     },
     url: {
       type: String,
-      required: [true, 'Resource URL is required'],
-      trim: true,
+      required: [true, 'Resource url is required'],
+      trim: true
     },
     type: {
       type: String,
-      default: 'article',
-    },
+      enum: {
+        values: ['video', 'article', 'docs'],
+        message: '{VALUE} is not a valid resource type'
+      },
+      required: [true, 'Resource type is required']
+    }
   },
   { _id: false }
 );
@@ -24,69 +28,62 @@ const moduleSchema = new mongoose.Schema(
   {
     moduleId: {
       type: String,
-      required: [true, 'Module ID is required'],
+      required: [true, 'moduleId is required'],
+      trim: true
     },
     title: {
       type: String,
       required: [true, 'Module title is required'],
-      trim: true,
+      trim: true
     },
     description: {
       type: String,
-      default: '',
+      required: [true, 'Module description is required'],
+      trim: true
     },
     resourceTags: {
       type: [String],
-      default: [],
+      default: []
     },
     resources: {
       type: [resourceSchema],
-      default: [],
+      default: []
     },
     estimatedHours: {
       type: Number,
-      default: 0,
-      min: [0, 'Estimated hours cannot be negative'],
+      required: [true, 'estimatedHours is required'],
+      min: [1, 'estimatedHours must be at least 1']
     },
     status: {
       type: String,
       enum: {
         values: ['locked', 'active', 'complete'],
-        message: '{VALUE} is not a valid status',
+        message: '{VALUE} is not a valid module status'
       },
-      default: 'locked',
+      default: 'locked'
     },
     checkpointScore: {
       type: Number,
       default: null,
-      min: [0, 'Checkpoint score cannot be less than 0'],
-      max: [100, 'Checkpoint score cannot exceed 100'],
+      min: [0, 'checkpointScore cannot be less than 0'],
+      max: [100, 'checkpointScore cannot be greater than 100']
     },
+    isNewlyAdded: {
+      type: Boolean,
+      default: false
+    }
   },
-  { _id: false }
-);
-
-const historySchema = new mongoose.Schema(
   {
-    date: {
-      type: Date,
-      default: Date.now,
-    },
-    event: {
-      type: String,
-      required: [true, 'History event is required'],
-    },
-    readinessScore: {
-      type: Number,
-      min: [0, 'Readiness score cannot be less than 0'],
-      max: [100, 'Readiness score cannot exceed 100'],
-    },
-    reason: {
-      type: String,
-      default: null,
-    },
-  },
-  { _id: false }
+    _id: false,
+    toJSON: {
+      transform(doc, ret) {
+        ret.isNew = Boolean(
+          ret.isNewlyAdded || (ret.moduleId && ret.moduleId.includes('remedial'))
+        );
+        return ret;
+      }
+    }
+  }
 );
 
 const roadmapSchema = new mongoose.Schema(
@@ -94,40 +91,62 @@ const roadmapSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'User ID is required'],
-      index: true,
+      required: [true, 'userId is required'],
+      unique: true,
+      index: true
     },
     roleId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Role',
-      required: [true, 'Role ID is required'],
+      type: String,
+      required: [true, 'roleId is required'],
+      trim: true
     },
-    isArchived: {
-      type: Boolean,
-      default: false,
+    dimensionScores: {
+      type: Map,
+      of: Number,
+      required: [true, 'dimensionScores are required']
+    },
+    modules: {
+      type: [moduleSchema],
+      required: [true, 'modules are required'],
+      validate: {
+        validator: function (mods) {
+          return Array.isArray(mods) && mods.length > 0;
+        },
+        message: 'Roadmap must contain at least one module'
+      }
     },
     readinessScore: {
       type: Number,
       default: 0,
-      min: [0, 'Readiness score cannot be less than 0'],
-      max: [100, 'Readiness score cannot exceed 100'],
+      min: [0, 'readinessScore cannot be less than 0'],
+      max: [100, 'readinessScore cannot be greater than 100']
     },
-    modules: {
-      type: [moduleSchema],
-      default: [],
-    },
-    history: {
-      type: [historySchema],
-      default: [],
-    },
+    generatedBy: {
+      type: String,
+      enum: {
+        values: ['llm', 'fallback'],
+        message: '{VALUE} is not a valid generatedBy option'
+      },
+      required: [true, 'generatedBy is required']
+    }
   },
   {
     timestamps: true,
+    toJSON: {
+      transform(doc, ret) {
+        delete ret.__v;
+        if (Array.isArray(ret.modules)) {
+          ret.modules = ret.modules.map((m) => ({
+            ...m,
+            isNew: Boolean(m.isNewlyAdded || (m.moduleId && m.moduleId.includes('remedial')))
+          }));
+        }
+        return ret;
+      }
+    }
   }
 );
 
-roadmapSchema.index({ userId: 1, isArchived: 1 });
-
 const Roadmap = mongoose.model('Roadmap', roadmapSchema);
 
-module.exports = Roadmap;
+export default Roadmap;

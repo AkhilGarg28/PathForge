@@ -1,49 +1,44 @@
-import './Card.css';
+import React from 'react';
 
-/**
- * Surface container with token-based borders, radii, elevation, and optional
- * header/footer slots.
- */
-export default function Card({
+export function Card({
   children,
-  header,
-  footer,
-  variant = 'default',
-  className = '',
+  interactive = false,
   onClick,
+  className = '',
+  style = {},
+  padding = 'var(--space-3)',
   ...props
 }) {
-  const isInteractive = Boolean(onClick) || variant === 'interactive';
-  const classes = [
-    'pf-card',
-    `pf-card--${variant}`,
-    isInteractive ? 'pf-card--interactive' : '',
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
-
   return (
     <div
-      className={classes}
-      onClick={onClick}
-      role={isInteractive ? 'button' : undefined}
-      tabIndex={isInteractive ? 0 : undefined}
-      onKeyDown={
-        isInteractive
-          ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onClick?.(e);
+      onClick={interactive ? onClick : undefined}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      className={className}
+      style={{
+        backgroundColor: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-sm)',
+        padding,
+        transition: 'all 0.2s ease',
+        cursor: interactive ? 'pointer' : 'default',
+        ...(interactive
+          ? {
+              ':hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: 'var(--shadow-md)',
+                borderColor: 'var(--color-primary-300)'
               }
             }
-          : undefined
-      }
+          : {}),
+        ...style
+      }}
       {...props}
     >
-      {header && <div className="pf-card__header">{header}</div>}
-      <div className="pf-card__body">{children}</div>
-      {footer && <div className="pf-card__footer">{footer}</div>}
+      {children}
     </div>
   );
 }
+
+export default Card;

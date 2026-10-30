@@ -1,46 +1,74 @@
-const env = require('../config/env');
-
-const notFoundHandler = (req, res, next) => {
-  const error = new Error(`Route not found: ${req.method} ${req.originalUrl}`);
-  error.statusCode = 404;
-  next(error);
-};
-
-// Central error handler
+/**
+ * Central Express Error Handler Middleware
+ * Formats errors into the unified API error shape { success: false, message, errors? }.
+ * Redacts internal stacks in production and normalizes Mongoose / JWT error structures.
+ */
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (err, req, res, next) => {
-  let statusCode = err.statusCode || (res.statusCode >= 400 ? res.statusCode : 500);
-
-  // Handle Mongoose cast errors (malformed ObjectIDs) as 400
-  if (err.name === 'CastError') {
-    statusCode = 400;
-  }
-
-  // Handle JSON parse errors from body parser as 400
-  if (err.type === 'entity.parse.failed') {
-    statusCode = 400;
-  }
-
+  let statusCode = err.statusCode || (res.statusCode !== 200 ? res.statusCode : 500);
   let message = err.message || 'Internal Server Error';
+  let errors = err.errors;
 
-  // In production, mask unhandled 500 server errors to prevent information leakage
-  if (env.NODE_ENV === 'production' && statusCode === 500) {
-    message = 'Internal Server Error';
+  // 1. Mongoose Validation Error (Bad Request)
+  if (err.name === 'ValidationError') {
+    statusCode = 400;
+    message = 'Validation failed';
+    errors = Object.values(err.errors || {}).map((e) => ({
+      field: e.path,
+      message: e.message
+    }));
   }
 
-  const response = {
-    message,
+  // 2. Mongoose Duplicate Key Error (Conflict)
+  else if (err.code === 11000) {
+    statusCode = 409;
+    const duplicatedFields = Object.keys(err.keyValue || {});
+    const fieldName = duplicatedFields.length > 0 ? duplicatedFields.join(', ') : 'field';
+    message = `Duplicate value entered for ${fieldName}. Please provide a unique value.`;
+    errors = duplicatedFields.map((field) => ({
+      field,
+      message: `${field} must be unique`
+    }));
+  }
+
+  // 3. Mongoose Cast Error (e.g. invalid ObjectId)
+  else if (err.name === 'CastError') {
+    statusCode = 400;
+    message = `Invalid format for resource parameter '${err.path}': ${err.value}`;
+  }
+
+  // 3b. Mongoose Version / Concurrency Conflict Error
+  else if (err.name === 'VersionError') {
+    statusCode = 409;
+    message = 'Concurrent modification detected. Please refresh and try again.';
+  }
+
+  // 4. JWT Verification & Expiration Errors
+  else if (err.name === 'JsonWebTokenError') {
+    statusCode = 401;
+    message = 'Invalid authentication token. Please log in again.';
+  } else if (err.name === 'TokenExpiredError') {
+    statusCode = 401;
+    message = 'Authentication token has expired. Please log in again.';
+  }
+
+  // In production, redact raw 500 internal details
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction && statusCode === 500) {
+    message = 'An unexpected server error occurred';
+    errors = undefined;
+  }
+
+  const responsePayload = {
+    success: false,
+    message
   };
 
-  // Stack traces are NEVER exposed in production
-  if (env.NODE_ENV !== 'production' && err.stack) {
-    response.stack = err.stack;
+  if (errors && Array.isArray(errors) && errors.length > 0) {
+    responsePayload.errors = errors;
   }
 
-  res.status(statusCode).json(response);
+  res.status(statusCode).json(responsePayload);
 };
 
-module.exports = {
-  notFoundHandler,
-  errorHandler,
-};
+export default errorHandler;

@@ -1,254 +1,194 @@
 [
   {
-    "title": "React Official Documentation: Managing State",
-    "url": "https://react.dev/learn/managing-state",
+    "id": "res-js-1",
+    "title": "MDN Web Docs: JavaScript Reference",
+    "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
     "type": "docs",
-    "dimension": "Frontend React",
-    "roleName": "MERN Developer"
+    "dimension": "javascript",
+    "tag": "javascript"
   },
   {
-    "title": "React Component Lifecycle & Hooks Deep Dive",
-    "url": "https://developer.mozilla.org/en-US/docs/Learn/Tools_and_testing/Client-side_JavaScript_frameworks/React_hooks",
+    "id": "res-js-2",
+    "title": "freeCodeCamp: Learn JavaScript Fundamentals for Beginners",
+    "url": "https://www.freecodecamp.org/news/learn-javascript-for-beginners/",
     "type": "article",
-    "dimension": "Frontend React",
-    "roleName": "MERN Developer"
+    "dimension": "javascript",
+    "tag": "javascript"
   },
   {
-    "title": "Building Modern UIs with React 18 & Fiber",
-    "url": "https://www.youtube.com/watch?v=sample-react-18",
+    "id": "res-js-3",
+    "title": "freeCodeCamp: Learn JavaScript - Full Course for Beginners",
+    "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg",
     "type": "video",
-    "dimension": "Frontend React",
-    "roleName": "MERN Developer"
+    "dimension": "javascript",
+    "tag": "javascript"
   },
   {
-    "title": "Node.js Official Documentation & Event Loop Architecture",
-    "url": "https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick",
+    "id": "res-react-1",
+    "title": "React Official Documentation: Quick Start & Learn",
+    "url": "https://react.dev/learn",
     "type": "docs",
-    "dimension": "Node & Express",
-    "roleName": "MERN Developer"
+    "dimension": "react",
+    "tag": "react"
   },
   {
-    "title": "Building Production RESTful APIs with Express",
-    "url": "https://expressjs.com/en/starter/installing.html",
+    "id": "res-react-2",
+    "title": "freeCodeCamp: React Architecture & Component Patterns",
+    "url": "https://www.freecodecamp.org/news/tag/react/",
     "type": "article",
-    "dimension": "Node & Express",
-    "roleName": "MERN Developer"
+    "dimension": "react",
+    "tag": "react"
   },
   {
-    "title": "Mastering Node.js Streams & Asynchronous Patterns",
-    "url": "https://www.youtube.com/watch?v=sample-nodejs-streams",
+    "id": "res-react-3",
+    "title": "freeCodeCamp: React Course for Beginners",
+    "url": "https://www.youtube.com/watch?v=bMknfKXIFA8",
     "type": "video",
-    "dimension": "Node & Express",
-    "roleName": "MERN Developer"
+    "dimension": "react",
+    "tag": "react"
   },
   {
-    "title": "MongoDB Manual: Indexes & Performance Optimization",
-    "url": "https://www.mongodb.com/docs/manual/indexes/",
+    "id": "res-node-1",
+    "title": "Node.js Official Documentation & API Reference",
+    "url": "https://nodejs.org/en/docs",
     "type": "docs",
-    "dimension": "MongoDB & Mongoose",
-    "roleName": "MERN Developer"
+    "dimension": "node-express",
+    "tag": "node"
   },
   {
-    "title": "Mongoose Schema Design and Aggregation Pipelines",
-    "url": "https://mongoosejs.com/docs/guide.html",
+    "id": "res-node-2",
+    "title": "Express.js Official Documentation & Routing Guide",
+    "url": "https://expressjs.com/",
     "type": "article",
-    "dimension": "MongoDB & Mongoose",
-    "roleName": "MERN Developer"
+    "dimension": "node-express",
+    "tag": "express"
   },
   {
-    "title": "MongoDB Schema Anti-patterns and Index Tuning",
-    "url": "https://www.youtube.com/watch?v=sample-mongodb-patterns",
+    "id": "res-node-3",
+    "title": "freeCodeCamp: Node.js and Express.js Full Course",
+    "url": "https://www.youtube.com/watch?v=Oe421EPjeBE",
     "type": "video",
-    "dimension": "MongoDB & Mongoose",
-    "roleName": "MERN Developer"
+    "dimension": "node-express",
+    "tag": "node"
   },
   {
-    "title": "OWASP API Security Top 10 Guidelines",
-    "url": "https://owasp.org/www-project-api-security/",
+    "id": "res-dbgit-1",
+    "title": "MongoDB Official Manual & Schema Guides",
+    "url": "https://www.mongodb.com/docs/",
     "type": "docs",
-    "dimension": "API Design & Security",
-    "roleName": "MERN Developer"
+    "dimension": "databases-git",
+    "tag": "mongodb"
   },
   {
-    "title": "Securing REST APIs with JWT & Secure Cookies",
-    "url": "https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html",
+    "id": "res-dbgit-2",
+    "title": "Pro Git Book: Official Documentation & Reference",
+    "url": "https://git-scm.com/book/en/v2",
     "type": "article",
-    "dimension": "API Design & Security",
-    "roleName": "MERN Developer"
+    "dimension": "databases-git",
+    "tag": "git"
   },
   {
-    "title": "Web Security Essentials: Helmet, CORS, and Rate Limiting",
-    "url": "https://www.youtube.com/watch?v=sample-api-security",
+    "id": "res-dbgit-3",
+    "title": "freeCodeCamp: Git and GitHub for Beginners",
+    "url": "https://www.youtube.com/watch?v=RGOj5yH7evk",
     "type": "video",
-    "dimension": "API Design & Security",
-    "roleName": "MERN Developer"
+    "dimension": "databases-git",
+    "tag": "git"
   },
   {
-    "title": "Redux Toolkit Official Documentation",
-    "url": "https://redux-toolkit.js.org/introduction/getting-started",
+    "id": "res-excelsql-1",
+    "title": "Microsoft Excel Official Training & Function Reference",
+    "url": "https://support.microsoft.com/en-us/excel",
     "type": "docs",
-    "dimension": "State Management",
-    "roleName": "MERN Developer"
+    "dimension": "excel-sql",
+    "tag": "excel"
   },
   {
-    "title": "Comparing Global State: Zustand, Context, and Redux",
-    "url": "https://tkdodo.eu/blog/practical-react-query",
+    "id": "res-excelsql-2",
+    "title": "Mode Analytics: The SQL Tutorial for Data Analysis",
+    "url": "https://mode.com/sql-tutorial/",
     "type": "article",
-    "dimension": "State Management",
-    "roleName": "MERN Developer"
+    "dimension": "excel-sql",
+    "tag": "sql"
   },
   {
-    "title": "Modern State Architecture in Large Scale React Apps",
-    "url": "https://www.youtube.com/watch?v=sample-state-architecture",
+    "id": "res-excelsql-3",
+    "title": "freeCodeCamp: SQL Tutorial - Full Database Course for Beginners",
+    "url": "https://www.youtube.com/watch?v=HXV3zeQKqGY",
     "type": "video",
-    "dimension": "State Management",
-    "roleName": "MERN Developer"
+    "dimension": "excel-sql",
+    "tag": "sql"
   },
   {
-    "title": "Jest & Supertest Integration Testing Guide",
-    "url": "https://jestjs.io/docs/getting-started",
+    "id": "res-py-1",
+    "title": "The Python Standard Library & Tutorial Reference",
+    "url": "https://docs.python.org/3/tutorial/",
     "type": "docs",
-    "dimension": "Testing & Deployment",
-    "roleName": "MERN Developer"
+    "dimension": "python",
+    "tag": "python"
   },
   {
-    "title": "Deploying MERN Applications with Docker and Nginx",
-    "url": "https://docs.docker.com/get-started/",
+    "id": "res-py-2",
+    "title": "pandas Official Documentation: Getting Started Guide",
+    "url": "https://pandas.pydata.org/docs/getting_started/index.html",
     "type": "article",
-    "dimension": "Testing & Deployment",
-    "roleName": "MERN Developer"
+    "dimension": "python",
+    "tag": "pandas"
   },
   {
-    "title": "End-to-End CI/CD Pipelines with GitHub Actions",
-    "url": "https://www.youtube.com/watch?v=sample-cicd-github-actions",
+    "id": "res-py-3",
+    "title": "freeCodeCamp: Python for Beginners - Full Course",
+    "url": "https://www.youtube.com/watch?v=rfscVS0vtbw",
     "type": "video",
-    "dimension": "Testing & Deployment",
-    "roleName": "MERN Developer"
+    "dimension": "python",
+    "tag": "python"
   },
   {
-    "title": "PostgreSQL & SQL Queries Reference",
-    "url": "https://www.postgresql.org/docs/current/queries.html",
+    "id": "res-stat-1",
+    "title": "NIST/SEMATECH e-Handbook of Statistical Methods",
+    "url": "https://www.itl.nist.gov/div898/handbook/",
     "type": "docs",
-    "dimension": "SQL & Databases",
-    "roleName": "Data Analyst"
+    "dimension": "statistics",
+    "tag": "statistics"
   },
   {
-    "title": "Mastering Advanced SQL Joins and Window Functions",
-    "url": "https://mode.com/sql-tutorial/sql-window-functions/",
+    "id": "res-stat-2",
+    "title": "OpenIntro Statistics: Free Interactive Textbook",
+    "url": "https://www.openintro.org/book/os/",
     "type": "article",
-    "dimension": "SQL & Databases",
-    "roleName": "Data Analyst"
+    "dimension": "statistics",
+    "tag": "statistics"
   },
   {
-    "title": "SQL for Analytics Crash Course",
-    "url": "https://www.youtube.com/watch?v=sample-sql-analytics",
+    "id": "res-stat-3",
+    "title": "freeCodeCamp: Statistics - A Full University Course on Data Science",
+    "url": "https://www.youtube.com/watch?v=xxpc-HPKN28",
     "type": "video",
-    "dimension": "SQL & Databases",
-    "roleName": "Data Analyst"
+    "dimension": "statistics",
+    "tag": "statistics"
   },
   {
-    "title": "Pandas Official API Documentation",
-    "url": "https://pandas.pydata.org/docs/user_guide/index.html",
+    "id": "res-dataviz-1",
+    "title": "Matplotlib Official User Guide & Plotting Gallery",
+    "url": "https://matplotlib.org/stable/users/index.html",
     "type": "docs",
-    "dimension": "Python & Pandas",
-    "roleName": "Data Analyst"
+    "dimension": "data-visualization",
+    "tag": "matplotlib"
   },
   {
-    "title": "Data Manipulation with Python and Pandas",
-    "url": "https://realpython.com/pandas-dataframe/",
+    "id": "res-dataviz-2",
+    "title": "Microsoft Power BI Official Documentation & Tutorials",
+    "url": "https://learn.microsoft.com/en-us/power-bi/",
     "type": "article",
-    "dimension": "Python & Pandas",
-    "roleName": "Data Analyst"
+    "dimension": "data-visualization",
+    "tag": "powerbi"
   },
   {
-    "title": "Fast-Track Data Analysis with Pandas & NumPy",
-    "url": "https://www.youtube.com/watch?v=sample-pandas-crash-course",
+    "id": "res-dataviz-3",
+    "title": "freeCodeCamp: Tableau for Beginners - Full Course",
+    "url": "https://www.youtube.com/watch?v=TPOlL_fK1l4",
     "type": "video",
-    "dimension": "Python & Pandas",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Seaborn & Matplotlib Visualization Documentation",
-    "url": "https://seaborn.pydata.org/tutorial.html",
-    "type": "docs",
-    "dimension": "Data Visualization",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Storytelling with Data: Chart Design Principles",
-    "url": "https://www.storytellingwithdata.com/chart-guide",
-    "type": "article",
-    "dimension": "Data Visualization",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Interactive Dashboards with Plotly & Streamlit",
-    "url": "https://www.youtube.com/watch?v=sample-streamlit-dashboards",
-    "type": "video",
-    "dimension": "Data Visualization",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Statistical Methods for Data Science Reference",
-    "url": "https://docs.scipy.org/doc/scipy/tutorial/stats.html",
-    "type": "docs",
-    "dimension": "Statistical Analysis",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Hypothesis Testing and A/B Test Interpretation",
-    "url": "https://towardsdatascience.com/hypothesis-testing-explained",
-    "type": "article",
-    "dimension": "Statistical Analysis",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Practical Statistics for Analysts",
-    "url": "https://www.youtube.com/watch?v=sample-practical-statistics",
-    "type": "video",
-    "dimension": "Statistical Analysis",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Data Cleaning & Preprocessing Best Practices",
-    "url": "https://scikit-learn.org/stable/modules/preprocessing.html",
-    "type": "docs",
-    "dimension": "Data Cleaning",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Detecting and Imputing Missing Values in Tabular Data",
-    "url": "https://realpython.com/python-data-cleaning-numpy-pandas/",
-    "type": "article",
-    "dimension": "Data Cleaning",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Automating Data Cleaning Pipelines in Python",
-    "url": "https://www.youtube.com/watch?v=sample-data-cleaning",
-    "type": "video",
-    "dimension": "Data Cleaning",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Dimensional Modeling and Star Schema Architecture",
-    "url": "https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/",
-    "type": "docs",
-    "dimension": "Business Intelligence",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Building Executive BI Metrics and KPI Dashboards",
-    "url": "https://powerbi.microsoft.com/en-us/learning/",
-    "type": "article",
-    "dimension": "Business Intelligence",
-    "roleName": "Data Analyst"
-  },
-  {
-    "title": "Enterprise Data Warehousing & Modern BI Stacks",
-    "url": "https://www.youtube.com/watch?v=sample-bi-data-warehouse",
-    "type": "video",
-    "dimension": "Business Intelligence",
-    "roleName": "Data Analyst"
+    "dimension": "data-visualization",
+    "tag": "tableau"
   }
 ]

@@ -1,314 +1,257 @@
 [
   {
-    "id": "chk-react-1",
-    "roleName": "MERN Developer",
-    "dimension": "Frontend React",
-    "question": "What is the primary benefit of React.memo?",
-    "options": [
-      "Prevents re-rendering if component props have not changed",
-      "Caches API call results indefinitely",
-      "Compresses CSS modules",
-      "Converts state to persistent local storage"
-    ],
-    "correctIndex": 0
+    "moduleId": "mern-mod-1",
+    "roleId": "mern-developer",
+    "dimension": "javascript",
+    "questions": [
+      {
+        "id": "cp-mern-mod-1-q1",
+        "question": "Which Array method determines whether at least one element in an array satisfies a provided predicate function?",
+        "options": ["some()", "every()", "includes()", "find()"],
+        "correctIndex": 0,
+        "explanation": "some() executes the callback function once for each element present in the array until it finds one where callback returns a truthy value."
+      },
+      {
+        "id": "cp-mern-mod-1-q2",
+        "question": "What occurs when an async function in JavaScript returns a plain primitive value like a string or number?",
+        "options": [
+          "It throws a runtime TypeError because async functions must return objects",
+          "It automatically wraps the returned value inside a resolved Promise",
+          "It coerces the value to undefined unless explicitly awaited",
+          "It stops execution until the browser garbage collector runs"
+        ],
+        "correctIndex": 1,
+        "explanation": "Async functions always return a Promise; non-Promise return values are automatically wrapped in Promise.resolve(value)."
+      },
+      {
+        "id": "cp-mern-mod-1-q3",
+        "question": "In JavaScript closures, what is preserved when an inner function is returned from an enclosing outer function?",
+        "options": [
+          "Only variables declared with the global var keyword",
+          "The outer function's physical call stack frame",
+          "The outer function's lexical environment and variable bindings",
+          "The outer function's runtime parameter types"
+        ],
+        "correctIndex": 2,
+        "explanation": "A closure retains a reference to its lexical environment, allowing inner functions to access variables from the outer function even after it returns."
+      },
+      {
+        "id": "cp-mern-mod-1-q4",
+        "question": "Which operator enables accessing deeply nested object properties without throwing an error if an intermediate reference is null or undefined?",
+        "options": ["??", "&&", "||", "?."],
+        "correctIndex": 3,
+        "explanation": "The optional chaining operator (?.) short-circuits to undefined if the reference is nullish, preventing TypeError exceptions."
+      }
+    ]
   },
   {
-    "id": "chk-react-2",
-    "roleName": "MERN Developer",
-    "dimension": "Frontend React",
-    "question": "Why should keys passed to list elements in React be stable and unique?",
-    "options": [
-      "To style list items with unique colors",
-      "To help React identify which items have changed, been added, or removed during reconciliation",
-      "To satisfy browser HTML5 validation standards",
-      "To automatically sort the list alphabetically"
-    ],
-    "correctIndex": 1
+    "moduleId": "mern-mod-2",
+    "roleId": "mern-developer",
+    "dimension": "react",
+    "questions": [
+      {
+        "id": "cp-mern-mod-2-q1",
+        "question": "Which React hook should be used to cache a callback function definition between component re-renders?",
+        "options": ["useCallback", "useMemo", "useEffect", "useId"],
+        "correctIndex": 0,
+        "explanation": "useCallback returns a memoized version of the callback function that only changes if one of the dependencies has changed."
+      },
+      {
+        "id": "cp-mern-mod-2-q2",
+        "question": "What is the primary consequence of mutating component state directly (e.g., state.count = 5) instead of invoking the state setter?",
+        "options": [
+          "The browser page immediately reloads",
+          "React will not detect the mutation and fails to trigger a re-render",
+          "The component will throw an uncatchable compile-time syntax error",
+          "State is permanently lost from local memory"
+        ],
+        "correctIndex": 1,
+        "explanation": "Direct state mutations do not trigger React's reconciliation cycle, causing the visual UI to fall out of sync with underlying data."
+      },
+      {
+        "id": "cp-mern-mod-2-q3",
+        "question": "When does the cleanup function returned from a useEffect hook execute?",
+        "options": [
+          "Immediately when the parent component first mounts",
+          "Only when an uncaught error propagates to an error boundary",
+          "Before the effect re-runs on dependency changes, and upon component unmount",
+          "At every browser frame repaint"
+        ],
+        "correctIndex": 2,
+        "explanation": "React runs the cleanup function to tear down subscriptions or timers before applying the effect again, and when the component unmounts."
+      },
+      {
+        "id": "cp-mern-mod-2-q4",
+        "question": "In React's Context API, which component is used to supply shared context values to all nested descendants?",
+        "options": ["Consumer", "Dispatch", "Observer", "Provider"],
+        "correctIndex": 3,
+        "explanation": "The Context.Provider component accepts a 'value' prop and broadcasts it to all consuming descendant components."
+      }
+    ]
   },
   {
-    "id": "chk-react-3",
-    "roleName": "MERN Developer",
-    "dimension": "Frontend React",
-    "question": "When should you use useCallback hook?",
-    "options": [
-      "To memoize a callback function instance between renders to prevent unnecessary re-renders of optimized child components",
-      "To trigger a synchronous page refresh",
-      "To execute asynchronous database migrations",
-      "To convert class components into functional components"
-    ],
-    "correctIndex": 0
+    "moduleId": "mern-mod-3",
+    "roleId": "mern-developer",
+    "dimension": "node-express",
+    "questions": [
+      {
+        "id": "cp-mern-mod-3-q1",
+        "question": "In Express.js, which built-in middleware function parses incoming HTTP requests containing JSON payloads?",
+        "options": ["express.json()", "express.urlencoded()", "express.static()", "express.raw()"],
+        "correctIndex": 0,
+        "explanation": "express.json() parses incoming requests with JSON payloads and populates req.body with the resulting JavaScript object."
+      },
+      {
+        "id": "cp-mern-mod-3-q2",
+        "question": "What is the first argument passed into standard Express error-handling middleware functions?",
+        "options": ["req", "err", "res", "next"],
+        "correctIndex": 1,
+        "explanation": "Express error-handling middleware is identified by accepting four arguments: (err, req, res, next)."
+      },
+      {
+        "id": "cp-mern-mod-3-q3",
+        "question": "Which standard HTTP response status code should a REST API return when a new resource is successfully created?",
+        "options": ["200 OK", "204 No Content", "201 Created", "304 Not Modified"],
+        "correctIndex": 2,
+        "explanation": "HTTP 201 Created indicates that the request has succeeded and led to the creation of a new resource."
+      },
+      {
+        "id": "cp-mern-mod-3-q4",
+        "question": "Which HTTP method is specifically intended for idempotent replacement of an entire target resource?",
+        "options": ["POST", "PATCH", "OPTIONS", "PUT"],
+        "correctIndex": 3,
+        "explanation": "PUT completely replaces the target resource with the request payload, whereas PATCH applies partial modifications."
+      }
+    ]
   },
   {
-    "id": "chk-react-4",
-    "roleName": "MERN Developer",
-    "dimension": "Frontend React",
-    "question": "What happens if you update state directly without using the setState or dispatcher function?",
-    "options": [
-      "React throws a compile-time syntax error",
-      "React will not trigger a re-render and the UI will fall out of sync with state",
-      "The browser will immediately reload the window",
-      "The operating system restarts"
-    ],
-    "correctIndex": 1
+    "moduleId": "mern-mod-4",
+    "roleId": "mern-developer",
+    "dimension": "databases-git",
+    "questions": [
+      {
+        "id": "cp-mern-mod-4-q1",
+        "question": "In Mongoose, what constructor is used to define document schemas and field type constraints?",
+        "options": ["new mongoose.Schema()", "mongoose.createTable()", "mongoose.defineModel()", "new mongoose.Document()"],
+        "correctIndex": 0,
+        "explanation": "new mongoose.Schema() defines the shape of documents, validators, defaults, and getters for a MongoDB collection."
+      },
+      {
+        "id": "cp-mern-mod-4-q2",
+        "question": "In a MongoDB aggregation pipeline, which stage filters the document stream to pass only documents matching a query condition?",
+        "options": ["$group", "$match", "$project", "$lookup"],
+        "correctIndex": 1,
+        "explanation": "$match filters documents in an aggregation pipeline, reducing the volume of documents passing to subsequent stages."
+      },
+      {
+        "id": "cp-mern-mod-4-q3",
+        "question": "Which aggregation pipeline operator performs a left outer join to an unsharded collection in the same database?",
+        "options": ["$join", "$merge", "$lookup", "$unwind"],
+        "correctIndex": 2,
+        "explanation": "$lookup performs a left outer join to an unsharded collection in the same database to filter in documents from the joined collection."
+      },
+      {
+        "id": "cp-mern-mod-4-q4",
+        "question": "In Mongoose schemas, which field property ensures that duplicate values for that key are rejected by MongoDB index constraints?",
+        "options": ["required: true", "immutable: true", "indexType: 'primary'", "unique: true"],
+        "correctIndex": 3,
+        "explanation": "Setting unique: true in a Mongoose schema instructs MongoDB to create a unique index that rejects duplicate field values."
+      }
+    ]
   },
   {
-    "id": "chk-node-1",
-    "roleName": "MERN Developer",
-    "dimension": "Node & Express",
-    "question": "How do you handle asynchronous errors in Express 4 without unhandled promise rejections?",
-    "options": [
-      "Wrap async logic in try/catch and pass the error to next(err)",
-      "Set process.exit(0) inside the error handler",
-      "Call res.send() multiple times",
-      "Disable the Node.js event loop"
-    ],
-    "correctIndex": 0
+    "moduleId": "mern-mod-5",
+    "roleId": "mern-developer",
+    "dimension": "node-express",
+    "questions": [
+      {
+        "id": "cp-mern-mod-5-q1",
+        "question": "Why is storing authentication JWT tokens in httpOnly cookies safer than storing them in localStorage?",
+        "options": [
+          "httpOnly cookies cannot be accessed or stolen by client-side JavaScript via Cross-Site Scripting (XSS)",
+          "localStorage tokens automatically expire after each browser session closes",
+          "httpOnly cookies are automatically encrypted by operating system hardware",
+          "localStorage cannot store strings exceeding 128 characters"
+        ],
+        "correctIndex": 0,
+        "explanation": "The httpOnly flag instructs the browser that the cookie should not be accessible via client-side scripts (e.g. document.cookie), mitigating XSS token theft."
+      },
+      {
+        "id": "cp-mern-mod-5-q2",
+        "question": "Which library is the industry standard for securely hashing user passwords with adaptive cryptographic salt rounds in Node.js?",
+        "options": ["crypto-md5", "bcryptjs", "jwt-simple", "node-sha256"],
+        "correctIndex": 1,
+        "explanation": "bcryptjs implements the bcrypt adaptive hashing algorithm with salt rounds to defend against rainbow table and brute-force attacks."
+      },
+      {
+        "id": "cp-mern-mod-5-q3",
+        "question": "What are the three dot-separated components that constitute a signed JSON Web Token (JWT)?",
+        "options": [
+          "Domain, Path, and Cookie",
+          "Algorithm, Protocol, and Host",
+          "Header, Payload, and Signature",
+          "Issuer, Audience, and Scope"
+        ],
+        "correctIndex": 2,
+        "explanation": "A JWT consists of three Base64URL-encoded parts separated by periods: Header (algorithm & token type), Payload (claims), and Signature."
+      },
+      {
+        "id": "cp-mern-mod-5-q4",
+        "question": "In Cross-Origin Resource Sharing (CORS), which HTTP response header specifies which frontend origin is permitted to access backend data?",
+        "options": [
+          "Access-Control-Allow-Methods",
+          "Access-Control-Allow-Credentials",
+          "Access-Control-Max-Age",
+          "Access-Control-Allow-Origin"
+        ],
+        "correctIndex": 3,
+        "explanation": "Access-Control-Allow-Origin indicates whether the response can be shared with requesting code from the given origin."
+      }
+    ]
   },
   {
-    "id": "chk-node-2",
-    "roleName": "MERN Developer",
-    "dimension": "Node & Express",
-    "question": "What is the function of the Buffer class in Node.js?",
-    "options": [
-      "To manage UI components",
-      "To handle raw binary data directly in memory",
-      "To compress images before sending to client",
-      "To encrypt passwords using MD5"
-    ],
-    "correctIndex": 1
-  },
-  {
-    "id": "chk-node-3",
-    "roleName": "MERN Developer",
-    "dimension": "Node & Express",
-    "question": "What does express.json({ limit: '100kb' }) prevent?",
-    "options": [
-      "Slow network speeds",
-      "Denial of Service (DoS) attacks caused by memory exhaustion from large request payloads",
-      "SQL injections in URL parameters",
-      "CSS parsing bugs"
-    ],
-    "correctIndex": 1
-  },
-  {
-    "id": "chk-node-4",
-    "roleName": "MERN Developer",
-    "dimension": "Node & Express",
-    "question": "Why is clustering used in production Node.js servers?",
-    "options": [
-      "To spawn multiple worker processes sharing server ports to leverage multi-core CPUs",
-      "To minify JavaScript files on the fly",
-      "To replace Nginx as a reverse proxy",
-      "To convert HTTP/1.1 traffic into FTP"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-mongo-1",
-    "roleName": "MERN Developer",
-    "dimension": "MongoDB & Mongoose",
-    "question": "What is the purpose of MongoDB aggregation pipelines?",
-    "options": [
-      "To transform and filter documents through sequential multi-stage operations",
-      "To create React components dynamically",
-      "To convert MongoDB into a relational PostgreSQL database",
-      "To execute SQL queries directly against BSON"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-mongo-2",
-    "roleName": "MERN Developer",
-    "dimension": "MongoDB & Mongoose",
-    "question": "Which operator performs an atomic increment of an integer field in MongoDB?",
-    "options": [
-      "$add",
-      "$inc",
-      "$push",
-      "$set"
-    ],
-    "correctIndex": 1
-  },
-  {
-    "id": "chk-mongo-3",
-    "roleName": "MERN Developer",
-    "dimension": "MongoDB & Mongoose",
-    "question": "What does setting lean() on a Mongoose query do?",
-    "options": [
-      "Returns plain JavaScript objects instead of heavy Mongoose Documents, boosting read performance",
-      "Deletes empty fields from the database",
-      "Truncates string values to 10 characters",
-      "Validates document schemas twice"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-mongo-4",
-    "roleName": "MERN Developer",
-    "dimension": "MongoDB & Mongoose",
-    "question": "What index type should you create to automatically remove documents after a certain duration?",
-    "options": [
-      "Text index",
-      "TTL (Time-To-Live) index",
-      "2dsphere index",
-      "Hashed index"
-    ],
-    "correctIndex": 1
-  },
-  {
-    "id": "chk-sec-1",
-    "roleName": "MERN Developer",
-    "dimension": "API Design & Security",
-    "question": "What is the purpose of the Helmet middleware in Express?",
-    "options": [
-      "It secures Express apps by setting various HTTP security headers",
-      "It minifies JSON response payloads",
-      "It automatically runs penetration testing on endpoints",
-      "It protects against physical server theft"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-sec-2",
-    "roleName": "MERN Developer",
-    "dimension": "API Design & Security",
-    "question": "What does CORS (Cross-Origin Resource Sharing) protect against?",
-    "options": [
-      "Malicious scripts on one origin making unauthorized requests to a different origin on behalf of the user",
-      "SQL injection inside database queries",
-      "Hard drive crashes on the host machine",
-      "High CPU utilization during peak traffic"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-sec-3",
-    "roleName": "MERN Developer",
-    "dimension": "API Design & Security",
-    "question": "Why is bcrypt preferred over SHA-256 for password hashing?",
-    "options": [
-      "bcrypt produces shorter hash strings",
-      "bcrypt is intentionally computationally slow and incorporates salt and work factor to resist brute-force attacks",
-      "SHA-256 is deprecated and cannot be run on modern computers",
-      "bcrypt can be decrypted without the secret key"
-    ],
-    "correctIndex": 1
-  },
-  {
-    "id": "chk-sec-4",
-    "roleName": "MERN Developer",
-    "dimension": "API Design & Security",
-    "question": "What is the main advantage of RESTful idempotent methods like PUT and DELETE?",
-    "options": [
-      "Repeating the request multiple times produces the same system state as making it once",
-      "They run 10x faster than POST requests",
-      "They can only be sent over HTTP, not HTTPS",
-      "They do not require authentication"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-state-1",
-    "roleName": "MERN Developer",
-    "dimension": "State Management",
-    "question": "Why must reducers in Redux remain pure functions?",
-    "options": [
-      "To allow predictable state transitions, time-travel debugging, and prevent side-effect bugs",
-      "To make Redux compatible with CSS frameworks",
-      "Because impure functions cannot be compiled by Babel",
-      "To enable multi-threaded execution in JavaScript"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-state-2",
-    "roleName": "MERN Developer",
-    "dimension": "State Management",
-    "question": "In React Query / TanStack Query, what is the primary benefit of query caching?",
-    "options": [
-      "Deduplicating identical requests, providing instant cached data, and synchronizing background refetches",
-      "Eliminating the need for backend APIs",
-      "Storing UI component HTML in localStorage",
-      "Auto-generating mock responses for unit tests"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-state-3",
-    "roleName": "MERN Developer",
-    "dimension": "State Management",
-    "question": "In Zustand, how is state updated?",
-    "options": [
-      "By mutating global variables directly",
-      "Via the set function which merges or replaces state immutably",
-      "By dispatching XML strings to a web worker",
-      "By rewriting the index.html file"
-    ],
-    "correctIndex": 1
-  },
-  {
-    "id": "chk-state-4",
-    "roleName": "MERN Developer",
-    "dimension": "State Management",
-    "question": "What problem does state colocation solve?",
-    "options": [
-      "Keeping state as close to where it is used as possible prevents unnecessary re-renders in higher-level components",
-      "It combines frontend and backend code into one file",
-      "It hosts databases and web servers on the same server rack",
-      "It merges CSS and JavaScript into a single bundle"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-test-1",
-    "roleName": "MERN Developer",
-    "dimension": "Testing & Deployment",
-    "question": "What is the difference between a unit test and an integration test?",
-    "options": [
-      "Unit tests check individual isolated functions or modules, while integration tests verify multiple components working together",
-      "Unit tests are executed by humans manually, while integration tests are run by robots",
-      "Unit tests can only test HTML, while integration tests test databases",
-      "There is no difference"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-test-2",
-    "roleName": "MERN Developer",
-    "dimension": "Testing & Deployment",
-    "question": "What does a reverse proxy like Nginx provide in front of a Node.js application?",
-    "options": [
-      "SSL termination, static file caching, load balancing, and connection handling",
-      "Automatic code debugging and error correction",
-      "Direct execution of MongoDB queries",
-      "CSS pre-processing"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-test-3",
-    "roleName": "MERN Developer",
-    "dimension": "Testing & Deployment",
-    "question": "In continuous integration (CI) pipelines, what should happen when a test suite fails?",
-    "options": [
-      "The deployment pipeline should halt and block the merge or production release",
-      "The tests should automatically be deleted from git",
-      "The server should be shut down permanently",
-      "The pipeline should ignore the failure and deploy anyway"
-    ],
-    "correctIndex": 0
-  },
-  {
-    "id": "chk-test-4",
-    "roleName": "MERN Developer",
-    "dimension": "Testing & Deployment",
-    "question": "Why is PM2 widely used for running Node.js apps in virtual machines?",
-    "options": [
-      "It acts as a process manager providing auto-restarts, cluster mode, and zero-downtime reloads",
-      "It replaces the need for React in the frontend",
-      "It compiles Node.js to machine code",
-      "It automatically generates SQL schemas"
-    ],
-    "correctIndex": 0
+    "moduleId": "mern-mod-6",
+    "roleId": "mern-developer",
+    "dimension": "databases-git",
+    "questions": [
+      {
+        "id": "cp-mern-mod-6-q1",
+        "question": "In Git, which command creates and switches to a new feature branch in a single invocation?",
+        "options": ["git checkout -b <branch>", "git branch -d <branch>", "git switch -m <branch>", "git commit -b <branch>"],
+        "correctIndex": 0,
+        "explanation": "'git checkout -b <branch>' (or 'git switch -c <branch>') creates a new branch and immediately checks it out."
+      },
+      {
+        "id": "cp-mern-mod-6-q2",
+        "question": "Where should sensitive production configuration values like database URIs and JWT secrets be securely stored?",
+        "options": [
+          "Committed in public version control repositories for easy team sharing",
+          "Environment variables injected into the runtime by the hosting platform",
+          "Hardcoded directly into frontend React source files",
+          "Encoded inside public URL query parameters"
+        ],
+        "correctIndex": 1,
+        "explanation": "Secrets must be injected at runtime via environment variables (.env / cloud platform config), never checked into source control or exposed to the client."
+      },
+      {
+        "id": "cp-mern-mod-6-q3",
+        "question": "Which Git command downloads changes from a remote repository and immediately integrates them into the current active branch?",
+        "options": ["git push", "git fetch", "git pull", "git remote -v"],
+        "correctIndex": 2,
+        "explanation": "git pull is shorthand for git fetch followed by git merge FETCH_HEAD to update the current local branch with remote commits."
+      },
+      {
+        "id": "cp-mern-mod-6-q4",
+        "question": "In full-stack cloud deployment, what primary role does a reverse proxy or edge CDN serve in front of a Node.js API?",
+        "options": [
+          "Executing database transactions directly on client devices",
+          "Replacing Node.js controllers with browser-side localStorage",
+          "Compiling JSX templates into WebAssembly",
+          "Terminating SSL/TLS certificates, load balancing incoming traffic, and caching static assets"
+        ],
+        "correctIndex": 3,
+        "explanation": "A reverse proxy (like Nginx, Cloudflare, or AWS CloudFront) handles SSL termination, compression, static caching, and distributes traffic efficiently."
+      }
+    ]
   }
 ]

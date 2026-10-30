@@ -1,158 +1,166 @@
-const bcrypt = require('bcryptjs');
-const { z } = require('zod');
-const User = require('../models/User');
-const Roadmap = require('../models/Roadmap');
-const Diagnostic = require('../models/Diagnostic');
-const env = require('../config/env');
-const { setUserRole } = require('./roleController');
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+import Role from '../models/Role.js';
+import User from '../models/User.js';
+import Roadmap from '../models/Roadmap.js';
+import DiagnosticResult from '../models/DiagnosticResult.js';
+import { getCookieOptions, COOKIE_NAME } from '../utils/jwt.js';
 
-const COOKIE_NAME = 'token';
+const BCRYPT_SALT_ROUNDS = 12;
 
-const profileSchema = z.object({
-  name: z
-    .string({ required_error: 'Name is required' })
-    .trim()
-    .min(2, 'Name must be at least 2 characters')
-    .max(60, 'Name must be at most 60 characters'),
-});
+/**
+ * Assign targeted career role to authenticated user
+ * POST /api/user/role
+ */
+export const updateUserRole = async (req, res) => {
+  const { roleId } = req.body;
 
-const passwordSchema = z.object({
-  currentPassword: z
-    .string({ required_error: 'Current password is required' })
-    .min(1, 'Current password is required'),
-  newPassword: z
-    .string({ required_error: 'New password is required' })
-    .min(8, 'New password must be at least 8 characters')
-    .regex(
-      /^(?=.*[a-zA-Z])(?=.*\d)/,
-      'New password must contain at least one letter and one number'
-    ),
-});
-
-const deleteUserSchema = z.object({
-  password: z
-    .string({ required_error: 'Password is required' })
-    .min(1, 'Password is required to confirm deletion'),
-});
-
-const formatUserResponse = (user) => ({
-  id: user._id ? user._id.toString() : user.id,
-  name: user.name,
-  email: user.email,
-  targetRole: user.targetRole ?? null,
-});
-
-const updateProfile = async (req, res, next) => {
-  try {
-    const parseResult = profileSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      return res.status(400).json({
-        message: parseResult.error.errors[0]?.message || 'Validation error',
-        errors: parseResult.error.errors,
-      });
-    }
-
-    const { name } = parseResult.data;
-    const userId = req.user._id || req.user.id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    user.name = name;
-    await user.save();
-
-    return res.status(200).json({
-      user: formatUserResponse(user),
-      message: 'Profile updated successfully',
+  // Validate ObjectId format
+  if (!roleId || typeof roleId !== 'string' || !mongoose.Types.ObjectId.isValid(roleId)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid role ID format'
     });
-  } catch (error) {
-    return next(error);
   }
+
+  // Validate existence of role in database
+  const role = await Role.findById(roleId);
+  if (!role) {
+    return res.status(404).json({
+      success: false,
+      message: 'Role not found'
+    });
+  }
+
+  // Assign role to user without wiping existing roadmaps
+  req.user.roleId = role._id;
+  await req.user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: 'Role selection updated',
+    data: {
+      user: {
+        id: req.user._id.toString(),
+        name: req.user.name,
+        email: req.user.email,
+        roleId: req.user.roleId.toString()
+      }
+    }
+  });
 };
 
-const updatePassword = async (req, res, next) => {
-  try {
-    const parseResult = passwordSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      return res.status(400).json({
-        message: parseResult.error.errors[0]?.message || 'Validation error',
-        errors: parseResult.error.errors,
-      });
+/**
+ * Update authenticated user's display name
+ * PATCH /api/user/profile
+ */
+export const updateUserProfile = async (req, res) => {
+  const { name } = req.body;
+
+  req.user.name = name.trim();
+  await req.user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: 'Profile updated successfully',
+    data: {
+      user: {
+        id: req.user._id.toString(),
+        name: req.user.name,
+        email: req.user.email,
+        roleId: req.user.roleId ? req.user.roleId.toString() : null
+      }
     }
-
-    const { currentPassword, newPassword } = parseResult.data;
-    const userId = req.user._id || req.user.id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Current password is incorrect' });
-    }
-
-    const salt = await bcrypt.genSalt(12);
-    user.passwordHash = await bcrypt.hash(newPassword, salt);
-    await user.save();
-
-    return res.status(200).json({
-      message: 'Password updated successfully',
-    });
-  } catch (error) {
-    return next(error);
-  }
+  });
 };
 
-const deleteAccount = async (req, res, next) => {
-  try {
-    const parseResult = deleteUserSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      return res.status(400).json({
-        message: parseResult.error.errors[0]?.message || 'Password is required',
-        errors: parseResult.error.errors,
-      });
-    }
+/**
+ * Update authenticated user's password
+ * PATCH /api/user/password
+ */
+export const updateUserPassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
 
-    const { password } = parseResult.data;
-    const userId = req.user._id || req.user.id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid password' });
-    }
-
-    // Delete user, roadmaps, and diagnostic results
-    await Roadmap.deleteMany({ userId: user._id });
-    await Diagnostic.deleteMany({ userId: user._id });
-    await User.findByIdAndDelete(user._id);
-
-    // Clear authentication cookie
-    res.clearCookie(COOKIE_NAME, {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+  // Retrieve user with passwordHash
+  const user = await User.findById(req.user._id).select('+passwordHash');
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
     });
-
-    return res.status(200).json({
-      message: 'User account and all related data deleted successfully',
-    });
-  } catch (error) {
-    return next(error);
   }
+
+  // Verify current password
+  const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isMatch) {
+    return res.status(401).json({
+      success: false,
+      message: 'Current password does not match'
+    });
+  }
+
+  // Prevent reusing identical password
+  if (currentPassword === newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: 'New password cannot be identical to current password'
+    });
+  }
+
+  // Re-hash new password with 12 salt rounds
+  user.passwordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: 'Password updated successfully'
+  });
 };
 
-module.exports = {
-  setUserRole,
-  updateProfile,
-  updatePassword,
-  deleteAccount,
+/**
+ * Permanently delete authenticated user and all associated data
+ * DELETE /api/user
+ */
+export const deleteUserAccount = async (req, res) => {
+  const { password } = req.body;
+
+  if (!password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password confirmation is required to delete account'
+    });
+  }
+
+  // Verify password before destructive cascade delete
+  const user = await User.findById(req.user._id).select('+passwordHash');
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found'
+    });
+  }
+
+  const isMatch = await bcrypt.compare(password, user.passwordHash);
+  if (!isMatch) {
+    return res.status(401).json({
+      success: false,
+      message: 'Incorrect password'
+    });
+  }
+
+  // Cascade deletion of user data
+  await Roadmap.deleteMany({ userId: req.user._id });
+  await DiagnosticResult.deleteMany({ userId: req.user._id });
+  await User.findByIdAndDelete(req.user._id);
+
+  // Invalidate authentication session cookie
+  res.clearCookie(COOKIE_NAME, {
+    ...getCookieOptions(),
+    maxAge: 0
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: 'User account and all associated data deleted successfully'
+  });
 };

@@ -1,80 +1,117 @@
-import { memo } from 'react';
-import './ReadinessScore.css';
+import React from 'react';
 
-/**
- * Animated circular gauge displaying the user's 0-100 employability readiness score.
- * Employs the single amber progress token and supports a compact variant for mobile.
- * Wrapped in React.memo to optimize gauge re-renders.
- */
-function ReadinessScore({
+export function ReadinessScore({
   score = 0,
-  label = 'Readiness Score',
-  compact = false,
+  size = 'md',
+  showTier = true,
   className = '',
+  style = {}
 }) {
-  const clampedScore = Math.min(Math.max(Number(score) || 0, 0), 100);
+  const normalizedScore = Math.min(100, Math.max(0, Math.round(Number(score) || 0)));
 
-  // Geometry configuration
-  const radius = compact ? 18 : 52;
-  const strokeWidth = compact ? 4 : 9;
-  const size = compact ? 44 : 124;
-  const center = size / 2;
+  const getTier = (s) => {
+    if (s >= 85) return { label: 'Interview Ready', color: 'var(--color-success)' };
+    if (s >= 60) return { label: 'Job Competent', color: 'var(--color-primary)' };
+    if (s >= 30) return { label: 'Developing Skills', color: 'var(--color-accent)' };
+    return { label: 'Foundational Stage', color: 'var(--color-neutral-500)' };
+  };
+
+  const tier = getTier(normalizedScore);
+  const sizePx = size === 'sm' ? 70 : size === 'lg' ? 140 : 100;
+  const strokeWidth = size === 'sm' ? 6 : size === 'lg' ? 10 : 8;
+  const radius = (sizePx - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (clampedScore / 100) * circumference;
+  const strokeDashoffset = circumference - (normalizedScore / 100) * circumference;
 
   return (
     <div
-      role="meter"
-      aria-label={`${label}: ${clampedScore} out of 100`}
-      aria-valuenow={clampedScore}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      className={`pf-readiness-gauge ${compact ? 'pf-readiness-gauge--compact' : ''} ${className}`.trim()}
+      className={className}
+      style={{
+        display: 'inline-flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 'var(--space-1)',
+        ...style
+      }}
     >
-      <div style={{ position: 'relative', width: size, height: size }}>
-        <svg
-          className="pf-readiness-gauge__svg"
-          width={size}
-          height={size}
-          viewBox={`0 0 ${size} ${size}`}
-          aria-hidden="true"
-        >
+      <div style={{ position: 'relative', width: sizePx, height: sizePx }}>
+        <svg width={sizePx} height={sizePx} style={{ transform: 'rotate(-90deg)' }}>
           {/* Background Track */}
           <circle
-            className="pf-readiness-gauge__track"
-            cx={center}
-            cy={center}
+            cx={sizePx / 2}
+            cy={sizePx / 2}
             r={radius}
+            stroke="var(--color-neutral-200)"
             strokeWidth={strokeWidth}
+            fill="none"
           />
-          {/* Animated Value Stroke */}
+          {/* Amber Progress Fill */}
           <circle
-            className="pf-readiness-gauge__fill"
-            cx={center}
-            cy={center}
+            cx={sizePx / 2}
+            cy={sizePx / 2}
             r={radius}
+            stroke="var(--color-accent)"
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
-            strokeDashoffset={offset}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            fill="none"
+            style={{ transition: 'stroke-dashoffset 0.6s ease' }}
           />
         </svg>
 
+        {/* Center Score Text */}
         <div
-          className="pf-readiness-gauge__center"
-          style={{ width: size, height: size, top: 0, left: 0 }}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1
+          }}
         >
-          <span className="pf-readiness-gauge__number">{clampedScore}</span>
-          {!compact && (
-            <span className="pf-readiness-gauge__percent" aria-hidden="true">
-              %
-            </span>
-          )}
+          <span
+            style={{
+              fontSize: size === 'sm' ? '1rem' : size === 'lg' ? '2rem' : '1.5rem',
+              fontWeight: 800,
+              color: 'var(--color-neutral-900)'
+            }}
+          >
+            {normalizedScore}%
+          </span>
+          <span
+            style={{
+              fontSize: size === 'sm' ? '0.625rem' : '0.75rem',
+              fontWeight: 600,
+              color: 'var(--color-text-muted)',
+              marginTop: '2px'
+            }}
+          >
+            Readiness
+          </span>
         </div>
       </div>
 
-      {label && <span className="pf-readiness-gauge__label">{label}</span>}
+      {showTier && (
+        <span
+          style={{
+            fontSize: '0.8125rem',
+            fontWeight: 700,
+            color: tier.color,
+            backgroundColor: 'var(--color-surface)',
+            padding: '2px 8px',
+            borderRadius: 'var(--radius-full)',
+            border: '1px solid var(--color-border)',
+            boxShadow: 'var(--shadow-sm)'
+          }}
+        >
+          {tier.label}
+        </span>
+      )}
     </div>
   );
 }
 
-export default memo(ReadinessScore);
+export default ReadinessScore;

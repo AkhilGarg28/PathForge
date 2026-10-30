@@ -1,18 +1,28 @@
-const env = require('./config/env');
-const connectDB = require('./config/db');
-const app = require('./app');
+import { validateEnv, config } from './config/env.js';
+import connectDB from './config/db.js';
+import app from './app.js';
 
-const startServer = async () => {
-  try {
-    await connectDB();
+// 1. Fail fast on missing critical environment variables
+validateEnv();
 
-    app.listen(env.PORT, () => {
-      console.log(`Server listening on port ${env.PORT} in ${env.NODE_ENV} mode`);
-    });
-  } catch (error) {
-    console.error(`Failed to start server: ${error.message}`);
-    process.exit(1);
-  }
+// 2. Connect to MongoDB database
+await connectDB(config.mongoUri);
+
+// 3. Start listening for incoming requests
+const server = app.listen(config.port, () => {
+  console.log(`[SERVER] PathForge API running in ${config.nodeEnv} mode on port ${config.port}`);
+});
+
+// Graceful process termination handling
+const handleShutdown = (signal) => {
+  console.log(`\n[SERVER] Received ${signal}. Shutting down gracefully...`);
+  server.close(() => {
+    console.log('[SERVER] HTTP server closed.');
+    process.exit(0);
+  });
 };
 
-startServer();
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+
+export default server;
