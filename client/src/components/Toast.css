@@ -1,0 +1,109 @@
+.pf-toast-container {
+  position: fixed;
+  bottom: var(--space-3);
+  right: var(--space-3);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 400px;
+  width: calc(100% - var(--space-4));
+  pointer-events: none;
+}
+
+.pf-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  border: 1px solid transparent;
+  animation: pf-toast-slide-in 0.25s ease-out;
+}
+
+@keyframes pf-toast-slide-in {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.pf-toast__content {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+}
+
+.pf-toast__icon {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+.pf-toast__message {
+  margin: 0;
+  line-height: var(--line-height-normal);
+  color: inherit;
+}
+
+.pf-toast__close-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+  padding: var(--space-0-5);
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+}
+
+.pf-toast__close-btn:hover {
+  opacity: 1;
+}
+
+.pf-toast__close-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Variants */
+.pf-toast--success {
+  background-color: var(--color-success-bg);
+  border-color: var(--color-success-border);
+  color: var(--color-success-text);
+}
+
+.pf-toast--error {
+  background-color: var(--color-error-bg);
+  border-color: var(--color-error-border);
+  color: var(--color-error-text);
+}
+
+.pf-toast--info {
+  background-color: var(--color-info-bg);
+  border-color: var(--color-info-border);
+  color: var(--color-info-text);
+}
+
+@media (max-width: 639px) {
+  .pf-toast-container {
+    right: var(--space-2);
+    left: var(--space-2);
+    bottom: var(--space-2);
+    width: auto;
+    max-width: none;
+  }
+}

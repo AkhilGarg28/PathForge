@@ -1,0 +1,49 @@
+.pf-progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  width: 100%;
+  font-family: var(--font-sans);
+}
+
+.pf-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.pf-progress-header__value {
+  color: var(--color-progress-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.pf-progress-track {
+  width: 100%;
+  background-color: var(--color-progress-track);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+
+.pf-progress-track--sm {
+  height: var(--space-1);
+}
+
+.pf-progress-track--md {
+  height: var(--space-1-5, 12px);
+}
+
+.pf-progress-track--lg {
+  height: var(--space-2);
+}
+
+/* Strictly uses the single amber accent reserved for progression */
+.pf-progress-fill {
+  height: 100%;
+  background: var(--color-progress-fill-gradient);
+  border-radius: var(--radius-full);
+  transition: width 0.35s ease;
+}

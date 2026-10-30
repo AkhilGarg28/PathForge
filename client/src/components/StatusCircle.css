@@ -1,0 +1,42 @@
+.pf-status-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+/* Locked State */
+.pf-status-circle--locked {
+  background-color: var(--color-neutral-100);
+  border: 2px solid var(--color-neutral-300);
+  color: var(--color-neutral-500);
+}
+
+/* Active State: Highlighted with progress amber accent */
+.pf-status-circle--active {
+  background-color: var(--color-progress-track);
+  border: 2px solid var(--color-progress-fill);
+  color: var(--color-progress-text);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+}
+
+/* Complete State */
+.pf-status-circle--complete {
+  background-color: var(--color-success-bg);
+  border: 2px solid var(--color-success-fill);
+  color: var(--color-success-text);
+}
+
+.pf-status-circle__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}

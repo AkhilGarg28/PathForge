@@ -1,0 +1,40 @@
+.pf-skeleton {
+  background-color: var(--color-neutral-200);
+  background-image: linear-gradient(
+    90deg,
+    var(--color-neutral-200) 0%,
+    var(--color-neutral-100) 50%,
+    var(--color-neutral-200) 100%
+  );
+  background-size: 200% 100%;
+  animation: pf-skeleton-shimmer 1.5s infinite linear;
+  display: block;
+}
+
+@keyframes pf-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.pf-skeleton--text {
+  height: 1rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-0-5);
+  width: 100%;
+}
+
+.pf-skeleton--circle {
+  border-radius: var(--radius-full);
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+}
+
+.pf-skeleton--card {
+  border-radius: var(--radius-lg);
+  width: 100%;
+  min-height: 120px;
+}
