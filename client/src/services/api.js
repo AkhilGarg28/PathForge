@@ -19,15 +19,19 @@ api.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       const url = error.config?.url || '';
-      // Notify auth listeners
-      if (onUnauthorizedCallback) {
-        onUnauthorizedCallback();
-      }
+      const isAuthEndpoint =
+        url.includes('/auth/login') ||
+        url.includes('/auth/signup') ||
+        url.includes('/auth/me');
 
-      // Avoid infinite redirects or redirecting when attempting to log in or check initial auth
-      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/signup') || url.includes('/auth/me');
-      if (!isAuthEndpoint && window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      // If a protected session request fails with 401, clear auth state and redirect to /login
+      if (!isAuthEndpoint) {
+        if (onUnauthorizedCallback) {
+          onUnauthorizedCallback();
+        }
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

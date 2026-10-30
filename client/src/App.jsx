@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import PublicRoute from './components/PublicRoute';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -20,15 +21,19 @@ function App() {
       <Navbar />
       <main className="main-content">
         <Routes>
-          {/* Public Routes */}
+          {/* Public General Routes */}
           <Route path="/" element={<LandingPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/login" element={<LoginPage />} />
           <Route path="/roles" element={<RolesPage />} />
           <Route path="/diagnostic" element={<DiagnosticPage />} />
           <Route path="/generating" element={<GeneratingPage />} />
 
-          {/* Protected Routes */}
+          {/* Public Only Routes (Redirects logged-in users away to /roles or /dashboard) */}
+          <Route element={<PublicRoute />}>
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/login" element={<LoginPage />} />
+          </Route>
+
+          {/* Protected Routes (Redirects unauthenticated users to /login) */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/module/:moduleId" element={<ModuleDetailPage />} />

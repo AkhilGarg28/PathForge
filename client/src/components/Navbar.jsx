@@ -1,10 +1,23 @@
 import React from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../hooks/useToast';
 import Button from './Button';
 
 const Navbar = () => {
   const { user, logout, loading } = useAuth();
+  const { addToast } = useToast();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      addToast('Logged out successfully', 'info');
+      navigate('/login');
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  };
 
   return (
     <header className="navbar">
@@ -21,24 +34,34 @@ const Navbar = () => {
           <NavLink to="/roles" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             Roles
           </NavLink>
-          <NavLink to="/diagnostic" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            Diagnostic
-          </NavLink>
-          <NavLink to="/dashboard" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            Dashboard
-          </NavLink>
-          <NavLink to="/settings" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            Settings
-          </NavLink>
+          {user && (
+            <>
+              <NavLink to="/diagnostic" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                Diagnostic
+              </NavLink>
+              <NavLink to="/dashboard" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                Dashboard
+              </NavLink>
+              <NavLink to="/settings" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                Settings
+              </NavLink>
+            </>
+          )}
         </nav>
 
         <div className="navbar-auth">
           {loading ? (
-            <span className="auth-status-loading">Loading...</span>
+            <span className="user-welcome">Checking session...</span>
           ) : user ? (
             <div className="user-profile-summary">
-              <span className="user-welcome">Hello, <strong>{user.name}</strong></span>
-              <Button variant="secondary" onClick={logout} className="btn-logout">
+              <span className="user-welcome">
+                Hello, <strong>{user.name}</strong>
+              </span>
+              <Button
+                variant="secondary"
+                onClick={handleLogout}
+                className="btn-logout nav-btn"
+              >
                 Logout
               </Button>
             </div>
