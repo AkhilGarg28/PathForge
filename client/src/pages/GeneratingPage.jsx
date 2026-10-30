@@ -22,7 +22,7 @@ const GeneratingPage = () => {
   const { addToast } = useToast();
 
   // Retrieve cached answers and roleId from state or sessionStorage
-  const [cachedPayload, setCachedPayload] = useState(() => {
+  const [cachedPayload] = useState(() => {
     const stateRoleId = location.state?.roleId;
     const stateAnswers = location.state?.answers;
     const stateRoleName = location.state?.roleName;

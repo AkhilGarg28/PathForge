@@ -13,7 +13,7 @@ import api from '../services/api';
 
 const DiagnosticPage = () => {
   const { user } = useAuth();
-  const { roadmap, fetchRoadmap } = useRoadmap();
+  const { fetchRoadmap } = useRoadmap();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();

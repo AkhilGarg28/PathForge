@@ -25,7 +25,7 @@ import api from '../services/api';
 const CheckpointPage = () => {
   const { moduleId } = useParams();
   const navigate = useNavigate();
-  const { roadmap, setRoadmap, fetchRoadmap } = useRoadmap();
+  const { roadmap, setRoadmap } = useRoadmap();
   const { addToast } = useToast();
 
   const [loading, setLoading] = useState(true);

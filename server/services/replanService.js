@@ -132,6 +132,9 @@ const compressRemainingModules = async (remainingModules, score) => {
   }
 
   try {
+    if (process.env.FORCE_LLM_FAILURE === 'true') {
+      throw new Error('LLM unavailable (FORCE_LLM_FAILURE flag set)');
+    }
     if (module.exports.callLLMCompression) {
       const llmResult = await module.exports.callLLMCompression(remainingModules, score);
       if (Array.isArray(llmResult) && llmResult.length === remainingModules.length - 1) {

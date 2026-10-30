@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Toast = ({ id, message, type = 'info', onClose }) => {
+const Toast = ({ id: _id, message, type = 'info', onClose }) => {
   const getIcon = () => {
     switch (type) {
       case 'success':

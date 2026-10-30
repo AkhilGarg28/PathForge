@@ -153,6 +153,9 @@ Instructions:
  */
 const generateWithFallback = async (roleName, dimensionScores) => {
   try {
+    if (process.env.FORCE_LLM_FAILURE === 'true') {
+      throw new Error('LLM unavailable (FORCE_LLM_FAILURE flag set)');
+    }
     if (env.GEMINI_API_KEY && env.GEMINI_API_KEY.trim() !== '') {
       const llmModules = await module.exports.callGeminiApi(
         roleName,

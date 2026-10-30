@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Card from '../components/Card';
 import Button from '../components/Button';
 import Spinner from '../components/Spinner';
 import ErrorMessage from '../components/ErrorMessage';

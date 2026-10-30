@@ -1,7 +1,6 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
-import Button from '../components/Button';
 import ErrorMessage from '../components/ErrorMessage';
 import ReadinessScore from '../components/ReadinessScore';
 import ReadinessHistoryChart from '../components/ReadinessHistoryChart';
@@ -140,8 +139,8 @@ const DashboardPage = () => {
 
   const handleModuleClick = (mod) => {
     if (mod.status === 'active' || mod.status === 'complete') {
-      const targetId = mod.moduleId || mod._id || mod.id;
-      navigate(`/module/${targetId}`);
+      const id = mod.moduleId || mod._id || mod.id;
+      navigate(`/module/${id}`);
     }
   };
 
@@ -200,7 +199,6 @@ const DashboardPage = () => {
             const isActive = mod.status === 'active';
             const isLocked = mod.status === 'locked';
             const isClickable = isActive || isComplete;
-            const targetId = mod.moduleId || mod._id || mod.id;
             const isChanged =
               changedModuleIds.includes(mod.moduleId) ||
               (mod._id && changedModuleIds.includes(mod._id.toString()));
@@ -214,6 +212,8 @@ const DashboardPage = () => {
                 key={mod._id || mod.id || index}
                 ref={isHighlighted ? highlightedRef : null}
                 className={`stepper-item ${isComplete ? 'step-complete' : ''} ${isActive ? 'step-active' : ''} ${isLocked ? 'step-locked' : ''} ${isHighlighted ? 'step-highlighted' : ''}`}
+                data-module-id={mod.moduleId || mod._id || mod.id}
+                data-status={mod.status}
                 role="listitem"
               >
                 {/* Stepper Node & Connecting Line */}
