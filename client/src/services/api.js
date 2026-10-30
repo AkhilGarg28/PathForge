@@ -6,7 +6,16 @@ import {
   mockCheckpoint
 } from '../mocks/mockData.js';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+function resolveBaseUrl() {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl || envUrl.trim() === '') {
+    return 'http://localhost:5000/api';
+  }
+  const clean = envUrl.trim().replace(/\/+$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+}
+
+const BASE_URL = resolveBaseUrl();
 let USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 export function setMockMode(enabled) {

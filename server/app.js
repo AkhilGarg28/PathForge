@@ -25,7 +25,7 @@ app.set('trust proxy', 1);
 app.use(helmet());
 
 // CORS configuration supporting credentials from frontend origin (strictly disallow wildcards)
-const clientOrigin = process.env.CLIENT_URL || 'http://localhost:5173';
+const clientOrigin = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, '');
 if (clientOrigin === '*') {
   throw new Error("CORS wildcard origin '*' is strictly prohibited when credentials are enabled.");
 }
