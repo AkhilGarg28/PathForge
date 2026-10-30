@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -61,7 +61,7 @@ const ReadinessHistoryChart = ({ history = [] }) => {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={chartData}
-            margin={{ top: 12, right: 24, left: -16, bottom: 0 }}
+            margin={{ top: 10, right: 15, left: -20, bottom: 0 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
             <XAxis
@@ -72,11 +72,11 @@ const ReadinessHistoryChart = ({ history = [] }) => {
               axisLine={{ stroke: '#CBD5E1' }}
             />
             <YAxis
-              domain={[0, 100]}
               stroke="#64748B"
               fontSize={12}
               tickLine={false}
-              axisLine={false}
+              axisLine={{ stroke: '#CBD5E1' }}
+              domain={[0, 100]}
               ticks={[0, 25, 50, 75, 100]}
             />
             <Tooltip content={<CustomTooltip />} />
@@ -95,4 +95,4 @@ const ReadinessHistoryChart = ({ history = [] }) => {
   );
 };
 
-export default ReadinessHistoryChart;
+export default memo(ReadinessHistoryChart);

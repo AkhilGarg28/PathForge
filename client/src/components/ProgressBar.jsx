@@ -21,6 +21,7 @@ const ProgressBar = ({
       <div
         className="progress-track"
         role="progressbar"
+        aria-label={label || 'Progress'}
         aria-valuenow={percentage}
         aria-valuemin={0}
         aria-valuemax={100}

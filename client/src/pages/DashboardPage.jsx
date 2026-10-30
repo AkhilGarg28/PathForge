@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -22,8 +22,6 @@ const DashboardPage = () => {
   const changedModuleIds = location.state?.changedModuleIds || [];
   const replanToast = location.state?.replanToast;
   const highlightedRef = useRef(null);
-
-  
 
   const [localLoading, setLocalLoading] = useState(!roadmap);
   const [localError, setLocalError] = useState(null);
@@ -133,7 +131,7 @@ const DashboardPage = () => {
     );
   }
 
-  // Calculate Metrics
+  // Memoized Metrics & Handlers to avoid unnecessary re-renders
   const modules = roadmap.modules || [];
   const completedCount = modules.filter((m) => m.status === 'complete').length;
   const totalCount = modules.length;

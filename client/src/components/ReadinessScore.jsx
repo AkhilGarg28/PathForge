@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 
 const ReadinessScore = ({
   score = 0,
@@ -71,4 +71,4 @@ const ReadinessScore = ({
   );
 };
 
-export default ReadinessScore;
+export default memo(ReadinessScore);

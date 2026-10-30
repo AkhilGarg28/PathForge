@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const env = require('./config/env');
@@ -19,6 +20,7 @@ app.set('trust proxy', 1);
 
 // Middleware
 app.use(helmet());
+app.use(compression());
 app.use(
   morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev', {
     skip: () => env.NODE_ENV === 'test',
