@@ -1,121 +1,94 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import * as api from '../services/api.js';
-import { AuthContext } from './authContextDef.js';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { api, setUnauthorizedHandler } from '../services/api.js';
+
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
-  const checkSession = useCallback(async () => {
-    try {
-      const data = await api.getMe();
-      setUser(data?.user || null);
-      return data?.user || null;
-    } catch {
-      setUser(null);
-      return null;
-    } finally {
-      setLoading(false);
+  // Restore session via /api/auth/me on mount
+  useEffect(() => {
+    let isMounted = true;
+
+    async function restoreSession() {
+      try {
+        const res = await api.getMe();
+        if (isMounted && res?.data?.user) {
+          setUser(res.data.user);
+        }
+      } catch {
+        if (isMounted) {
+          setUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
     }
+
+    restoreSession();
+
+    // Hook unauthorized 401 triggers
+    setUnauthorizedHandler(() => {
+      if (isMounted) {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      setUnauthorizedHandler(null);
+    };
   }, []);
 
-  const refreshUser = useCallback(async () => {
-    try {
-      const data = await api.getMe();
-      setUser(data?.user || null);
-      return data?.user || null;
-    } catch {
-      setUser(null);
-      return null;
+  const login = useCallback(async ({ email, password }) => {
+    const res = await api.login({ email, password });
+    if (res?.data?.user) {
+      setUser(res.data.user);
     }
+    return res;
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    setLoading(true);
-    try {
-      const data = await api.login({ email, password });
-      setUser(data?.user || null);
-      return data;
-    } finally {
-      setLoading(false);
+  const signup = useCallback(async ({ name, email, password }) => {
+    const res = await api.signup({ name, email, password });
+    if (res?.data?.user) {
+      setUser(res.data.user);
     }
-  }, []);
-
-  const signup = useCallback(async (name, email, password) => {
-    setLoading(true);
-    try {
-      const data = await api.signup({ name, email, password });
-      setUser(data?.user || null);
-      return data;
-    } finally {
-      setLoading(false);
-    }
+    return res;
   }, []);
 
   const logout = useCallback(async () => {
-    setLoading(true);
     try {
       await api.logout();
     } finally {
       setUser(null);
-      setLoading(false);
     }
   }, []);
 
-  // Global 401 Unauthorized handler
-  useEffect(() => {
-    const unsubscribe = api.onUnauthorized(() => {
-      setUser(null);
-      navigate('/login', {
-        replace: true,
-        state: {
-          message: 'Session expired, please log in again',
-        },
-      });
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [navigate]);
-
-  // Initial session check on application mount
-  useEffect(() => {
-    let ignore = false;
-    api
-      .getMe()
-      .then((data) => {
-        if (!ignore) {
-          setUser(data?.user || null);
-        }
-      })
-      .catch(() => {
-        if (!ignore) {
-          setUser(null);
-        }
-      })
-      .finally(() => {
-        if (!ignore) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  const value = {
-    user,
-    loading,
-    login,
-    signup,
-    logout,
-    refreshUser,
-    checkSession,
-  };
+  const value = useMemo(
+    () => ({
+      user,
+      setUser,
+      loading,
+      isAuthenticated: !!user,
+      login,
+      signup,
+      logout
+    }),
+    [user, loading, login, signup, logout]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
+
+export default AuthContext;

@@ -1,314 +1,253 @@
 [
   {
-    "id": "mern-q1",
-    "roleName": "MERN Developer",
-    "dimension": "Frontend React",
-    "question": "What is the primary purpose of useEffect in React functional components?",
-    "options": [
-      "To manage global application state",
-      "To perform side effects such as data fetching and DOM manipulation",
-      "To compile JSX into browser-compatible JavaScript",
-      "To directly mutate the virtual DOM tree"
-    ],
-    "correctIndex": 1
+    "id": "q-mern-js-01",
+    "roleId": "mern-developer",
+    "dimension": "javascript",
+    "question": "Which keyword defines a block-scoped variable that cannot be reassigned?",
+    "options": ["var", "const", "let", "function"],
+    "correctIndex": 1,
+    "explanation": "'const' creates a block-scoped identifier whose binding cannot be reassigned."
   },
   {
-    "id": "mern-q2",
-    "roleName": "MERN Developer",
-    "dimension": "Frontend React",
-    "question": "How does React Fiber improve UI rendering performance?",
-    "options": [
-      "By replacing JavaScript with WebAssembly for all rendering",
-      "By enabling incremental rendering and work prioritization",
-      "By eliminating the need for component state",
-      "By caching all HTTP responses automatically"
-    ],
-    "correctIndex": 1
+    "id": "q-mern-js-02",
+    "roleId": "mern-developer",
+    "dimension": "javascript",
+    "question": "What is the evaluated output of 'typeof null' in standard JavaScript?",
+    "options": ["'null'", "'undefined'", "'object'", "'boolean'"],
+    "correctIndex": 2,
+    "explanation": "Due to a historical legacy quirk in JavaScript's original implementation, typeof null evaluates to 'object'."
   },
   {
-    "id": "mern-q3",
-    "roleName": "MERN Developer",
-    "dimension": "Node & Express",
-    "question": "What is the role of middleware in an Express.js application?",
-    "options": [
-      "To define database table schemas exclusively",
-      "To process requests and responses before reaching route handlers or termination",
-      "To compile server-side TypeScript to JavaScript",
-      "To handle multi-threading across CPU cores natively"
-    ],
-    "correctIndex": 1
+    "id": "q-mern-js-03",
+    "roleId": "mern-developer",
+    "dimension": "javascript",
+    "question": "Which Array method executes a callback for each element and returns a new array containing the transformed results?",
+    "options": ["forEach()", "filter()", "reduce()", "map()"],
+    "correctIndex": 3,
+    "explanation": "map() returns a new array populated with the results of calling a provided function on every element in the calling array."
   },
   {
-    "id": "mern-q4",
-    "roleName": "MERN Developer",
-    "dimension": "Node & Express",
-    "question": "In the Node.js event loop, which phase executes callbacks scheduled by process.nextTick()?",
-    "options": [
-      "Timers phase",
-      "I/O polling phase",
-      "Microtask queue immediately after the current operation finishes",
-      "Check phase"
-    ],
-    "correctIndex": 2
+    "id": "q-mern-react-01",
+    "roleId": "mern-developer",
+    "dimension": "react",
+    "question": "Which React hook should be used to persist a mutable value across renders without triggering a component re-render?",
+    "options": ["useRef", "useState", "useMemo", "useCallback"],
+    "correctIndex": 0,
+    "explanation": "useRef returns a mutable ref object whose .current property persists for the full lifetime of the component without causing a re-render when mutated."
   },
   {
-    "id": "mern-q5",
-    "roleName": "MERN Developer",
-    "dimension": "MongoDB & Mongoose",
-    "question": "What is the advantage of using compound indexes in MongoDB?",
+    "id": "q-mern-react-02",
+    "roleId": "mern-developer",
+    "dimension": "react",
+    "question": "When rendering a dynamic list in React, why is a unique 'key' prop required for each element?",
     "options": [
-      "They compress the collection data to zero bytes",
-      "They allow efficient querying on multiple fields specified in the index prefix",
-      "They eliminate the need for primary keys",
-      "They automatically shard collections across clusters"
+      "To automatically apply scoped CSS class selectors to DOM nodes",
+      "To help React identify which items have changed, been added, or removed for efficient reconciliation",
+      "To automatically sort the list items in ascending order",
+      "To attach event listeners directly to the document root"
     ],
-    "correctIndex": 1
+    "correctIndex": 1,
+    "explanation": "Keys give elements a stable identity across renders, allowing React to match elements in the virtual DOM tree to physical DOM nodes accurately."
   },
   {
-    "id": "mern-q6",
-    "roleName": "MERN Developer",
-    "dimension": "MongoDB & Mongoose",
-    "question": "In Mongoose, what does calling populate() on a query accomplish?",
+    "id": "q-mern-react-03",
+    "roleId": "mern-developer",
+    "dimension": "react",
+    "question": "In React 18, what is the default behavior when state updater functions are invoked inside browser event handlers?",
     "options": [
-      "It seeds the collection with random dummy records",
-      "It automatically fills in referenced documents from other collections",
-      "It verifies schema validation rules synchronously",
-      "It creates database backups on disk"
+      "Updates occur synchronously and immediately repaint the browser window",
+      "Updates trigger an infinite loop unless wrapped in a useEffect hook",
+      "Updates are automatically batched asynchronously into a single re-render to optimize performance",
+      "Updates throw an error unless explicitly marked with startTransition"
     ],
-    "correctIndex": 1
+    "correctIndex": 2,
+    "explanation": "React 18 provides automatic batching across timeouts, promises, and native event handlers, grouping multiple state updates into a single re-render."
   },
   {
-    "id": "mern-q7",
-    "roleName": "MERN Developer",
-    "dimension": "API Design & Security",
-    "question": "Why should sensitive JWT tokens be stored in httpOnly cookies rather than localStorage?",
-    "options": [
-      "httpOnly cookies have infinite expiration time",
-      "httpOnly cookies prevent access via client-side JavaScript, mitigating XSS attacks",
-      "localStorage cannot store strings larger than 10 bytes",
-      "Browsers automatically encrypt localStorage tokens with RSA"
-    ],
-    "correctIndex": 1
+    "id": "q-mern-node-01",
+    "roleId": "mern-developer",
+    "dimension": "node-express",
+    "question": "In Express.js, what function must a custom middleware invoke to pass control to the subsequent middleware function in the execution stack?",
+    "options": ["next()", "return true", "res.send()", "process.nextTick()"],
+    "correctIndex": 0,
+    "explanation": "Middleware functions must call next() to pass execution to the next middleware in the pipeline; otherwise, the request hangs."
   },
   {
-    "id": "mern-q8",
-    "roleName": "MERN Developer",
-    "dimension": "API Design & Security",
-    "question": "Which HTTP status code is most appropriate when a requested resource cannot be found?",
-    "options": [
-      "400 Bad Request",
-      "401 Unauthorized",
-      "403 Forbidden",
-      "404 Not Found"
-    ],
-    "correctIndex": 3
+    "id": "q-mern-node-02",
+    "roleId": "mern-developer",
+    "dimension": "node-express",
+    "question": "Which built-in Node.js module provides asynchronous file system operations without requiring external packages?",
+    "options": ["http", "path", "fs", "os"],
+    "correctIndex": 2,
+    "explanation": "The 'fs' (and 'fs/promises') module provides an API for interacting with the file system closely modeled around standard POSIX functions."
   },
   {
-    "id": "mern-q9",
-    "roleName": "MERN Developer",
-    "dimension": "State Management",
-    "question": "When is it recommended to use Context API instead of prop drilling in React?",
+    "id": "q-mern-node-03",
+    "roleId": "mern-developer",
+    "dimension": "node-express",
+    "question": "What is the primary role of the Node.js event loop?",
     "options": [
-      "For state that needs to be accessed by many components at different nesting levels",
-      "Only when dealing with asynchronous API calls",
-      "Exclusively for animations and CSS transitions",
-      "Whenever a component has more than one state variable"
+      "To parse TypeScript code into native binary machine code",
+      "To balance network requests across multiple physical machine clusters automatically",
+      "To encrypt all incoming HTTP request cookies before Express receives them",
+      "To orchestrate non-blocking asynchronous I/O operations by offloading tasks to the system kernel"
     ],
-    "correctIndex": 0
+    "correctIndex": 3,
+    "explanation": "The event loop enables Node.js to perform non-blocking I/O operations despite JavaScript being single-threaded, by offloading operations to the system kernel whenever possible."
   },
   {
-    "id": "mern-q10",
-    "roleName": "MERN Developer",
-    "dimension": "State Management",
-    "question": "In Redux Toolkit, what does createSlice primarily generate for you?",
-    "options": [
-      "A complete HTTP web server",
-      "Action creators and reducer functions based on your state mutations",
-      "A database schema file",
-      "Unit test files"
-    ],
-    "correctIndex": 1
+    "id": "q-mern-dbgit-01",
+    "roleId": "mern-developer",
+    "dimension": "databases-git",
+    "question": "In MongoDB, which collection method is specifically designed for multi-stage data processing and analytical grouping pipelines?",
+    "options": ["find()", "aggregate()", "updateMany()", "distinct()"],
+    "correctIndex": 1,
+    "explanation": "The aggregate() method processes documents through an aggregation pipeline of multi-stage transformation operators like $match, $group, and $project."
   },
   {
-    "id": "mern-q11",
-    "roleName": "MERN Developer",
-    "dimension": "Testing & Deployment",
-    "question": "What is the primary benefit of using Supertest alongside Jest for Node.js testing?",
+    "id": "q-mern-dbgit-02",
+    "roleId": "mern-developer",
+    "dimension": "databases-git",
+    "question": "In Git, which command stages tracked modified files and records a new commit snapshot with an inline message?",
     "options": [
-      "It automatically writes frontend UI components",
-      "It allows testing HTTP endpoints without having to bind to a physical network port",
-      "It replaces the need for MongoDB in all environments",
-      "It acts as a load balancer in production"
+      "git push -m 'message'",
+      "git checkout -b 'message'",
+      "git commit -am 'message'",
+      "git merge --message"
     ],
-    "correctIndex": 1
+    "correctIndex": 2,
+    "explanation": "The 'git commit -am' command combines staging modified tracked files (-a) and committing them with an inline commit message (-m)."
   },
   {
-    "id": "mern-q12",
-    "roleName": "MERN Developer",
-    "dimension": "Testing & Deployment",
-    "question": "What is a major advantage of containerizing a MERN application with Docker?",
-    "options": [
-      "It eliminates all application bugs automatically",
-      "It ensures environment parity across development, staging, and production",
-      "It converts JavaScript code to C++ for faster execution",
-      "It reduces code size by 99%"
-    ],
-    "correctIndex": 1
+    "id": "q-mern-dbgit-03",
+    "roleId": "mern-developer",
+    "dimension": "databases-git",
+    "question": "In MongoDB, what indexing data structure dramatically improves query search performance on specified document fields?",
+    "options": ["B-Tree Indexes", "Replication Logs", "Capped Circular Buffers", "JSON Validation Schemas"],
+    "correctIndex": 0,
+    "explanation": "MongoDB uses B-tree indexes to store a small portion of the collection's data set in an easy-to-traverse form, preventing full collection scans."
   },
   {
-    "id": "da-q1",
-    "roleName": "Data Analyst",
-    "dimension": "SQL & Databases",
-    "question": "What is the key difference between INNER JOIN and LEFT JOIN in SQL?",
-    "options": [
-      "INNER JOIN returns all rows from the left table regardless of matches",
-      "INNER JOIN returns only rows with matching keys in both tables, while LEFT JOIN includes all rows from the left table",
-      "LEFT JOIN only works on numerical primary keys",
-      "INNER JOIN deletes non-matching rows permanently"
-    ],
-    "correctIndex": 1
+    "id": "q-da-excelsql-01",
+    "roleId": "data-analyst",
+    "dimension": "excel-sql",
+    "question": "Which SQL clause is used to filter aggregated grouped records created by a GROUP BY statement?",
+    "options": ["WHERE", "ORDER BY", "LIMIT", "HAVING"],
+    "correctIndex": 3,
+    "explanation": "HAVING filters rows after grouping and aggregation occurs, whereas WHERE filters rows before aggregation."
   },
   {
-    "id": "da-q2",
-    "roleName": "Data Analyst",
-    "dimension": "SQL & Databases",
-    "question": "Which SQL clause is used to filter rows after an aggregation like COUNT or SUM?",
-    "options": [
-      "WHERE",
-      "HAVING",
-      "ORDER BY",
-      "GROUP BY"
-    ],
-    "correctIndex": 1
+    "id": "q-da-excelsql-02",
+    "roleId": "data-analyst",
+    "dimension": "excel-sql",
+    "question": "In Microsoft Excel, which modern lookup function searches both vertically and horizontally without requiring a left-to-right column order constraint?",
+    "options": ["VLOOKUP", "XLOOKUP", "HLOOKUP", "INDEX"],
+    "correctIndex": 1,
+    "explanation": "XLOOKUP overcomes VLOOKUP's limitation of only searching left-to-right and defaults to an exact match without needing a column index number."
   },
   {
-    "id": "da-q3",
-    "roleName": "Data Analyst",
-    "dimension": "Python & Pandas",
-    "question": "What is the primary function of df.groupby() in Pandas?",
-    "options": [
-      "To sort columns alphabetically",
-      "To split data into groups based on criteria, apply functions, and combine results",
-      "To drop all rows containing null values",
-      "To export DataFrame to a CSV file"
-    ],
-    "correctIndex": 1
+    "id": "q-da-excelsql-03",
+    "roleId": "data-analyst",
+    "dimension": "excel-sql",
+    "question": "Which SQL JOIN returns all rows from the left table and matched rows from the right table, populating unmatched right columns with NULL?",
+    "options": ["INNER JOIN", "CROSS JOIN", "RIGHT JOIN", "LEFT JOIN"],
+    "correctIndex": 3,
+    "explanation": "LEFT JOIN (or LEFT OUTER JOIN) preserves all rows from the left table regardless of whether there is a match in the right table."
   },
   {
-    "id": "da-q4",
-    "roleName": "Data Analyst",
-    "dimension": "Python & Pandas",
-    "question": "Which Pandas method is best suited for reshaping data from wide format to long format?",
-    "options": [
-      "df.pivot()",
-      "df.melt()",
-      "df.head()",
-      "df.describe()"
-    ],
-    "correctIndex": 1
+    "id": "q-da-python-01",
+    "roleId": "data-analyst",
+    "dimension": "python",
+    "question": "In Python's pandas library, which DataFrame method is used to remove rows containing null or NaN values?",
+    "options": ["dropna()", "fillna()", "isna()", "drop_duplicates()"],
+    "correctIndex": 0,
+    "explanation": "dropna() filters out rows (or columns) that contain missing or NaN values based on specified thresholds or subsets."
   },
   {
-    "id": "da-q5",
-    "roleName": "Data Analyst",
-    "dimension": "Data Visualization",
-    "question": "Which chart type is most appropriate for visualizing the distribution of a continuous numerical variable?",
+    "id": "q-da-python-02",
+    "roleId": "data-analyst",
+    "dimension": "python",
+    "question": "What is the primary fundamental difference between a Python list and a Python tuple?",
     "options": [
-      "Pie chart",
-      "Histogram",
-      "Stacked bar chart",
-      "Radar chart"
+      "Tuples can only store numeric values, whereas lists can store any object type",
+      "Lists are mutable sequences, whereas tuples are immutable sequences",
+      "Tuples cannot be iterated over using a for-loop",
+      "Lists cannot contain duplicate values"
     ],
-    "correctIndex": 1
+    "correctIndex": 1,
+    "explanation": "Lists can be modified after creation (mutable), while tuples cannot have elements added, removed, or reassigned (immutable)."
   },
   {
-    "id": "da-q6",
-    "roleName": "Data Analyst",
-    "dimension": "Data Visualization",
-    "question": "When comparing correlation between two continuous variables, which visual plot is most effective?",
-    "options": [
-      "Scatter plot",
-      "Donut chart",
-      "Treemap",
-      "Gantt chart"
-    ],
-    "correctIndex": 0
+    "id": "q-da-python-03",
+    "roleId": "data-analyst",
+    "dimension": "python",
+    "question": "In pandas, which attribute returns a tuple representing the dimensionality (rows, columns) of a DataFrame?",
+    "options": ["df.size", "df.columns", "df.shape", "df.ndim"],
+    "correctIndex": 2,
+    "explanation": "df.shape returns a tuple representing the dimensionality of the DataFrame in the format (n_rows, n_columns)."
   },
   {
-    "id": "da-q7",
-    "roleName": "Data Analyst",
-    "dimension": "Statistical Analysis",
-    "question": "What measure of central tendency is least sensitive to extreme outliers?",
-    "options": [
-      "Mean",
-      "Median",
-      "Standard Deviation",
-      "Variance"
-    ],
-    "correctIndex": 1
+    "id": "q-da-stats-01",
+    "roleId": "data-analyst",
+    "dimension": "statistics",
+    "question": "In descriptive statistics, which metric quantifies the amount of variation or dispersion of values around the arithmetic mean?",
+    "options": ["Standard Deviation", "Mode", "Median", "P-value"],
+    "correctIndex": 0,
+    "explanation": "Standard deviation measures the average distance of each data point in a distribution from the mean."
   },
   {
-    "id": "da-q8",
-    "roleName": "Data Analyst",
-    "dimension": "Statistical Analysis",
-    "question": "What does a p-value less than 0.05 typically indicate in hypothesis testing?",
+    "id": "q-da-stats-02",
+    "roleId": "data-analyst",
+    "dimension": "statistics",
+    "question": "In statistical hypothesis testing, what constitutes a Type I error?",
     "options": [
-      "The sample size is too small",
-      "Statistically significant evidence to reject the null hypothesis",
-      "The experiment must be discarded",
-      "The alternative hypothesis is proven 100% false"
+      "Failing to reject a false null hypothesis (false negative)",
+      "Accepting an alternative hypothesis when the sample size is under 30",
+      "Calculating an incorrect confidence interval due to outliers",
+      "Rejecting a true null hypothesis (false positive)"
     ],
-    "correctIndex": 1
+    "correctIndex": 3,
+    "explanation": "A Type I error occurs when the null hypothesis is true, but we incorrectly reject it (a false positive finding)."
   },
   {
-    "id": "da-q9",
-    "roleName": "Data Analyst",
-    "dimension": "Data Cleaning",
-    "question": "What is the risk of simply imputing missing numeric data with the column mean?",
-    "options": [
-      "It will crash the Python interpreter",
-      "It artificially reduces variance and can bias parameter estimates",
-      "It changes data types to strings",
-      "It duplicates all existing records"
-    ],
-    "correctIndex": 1
+    "id": "q-da-stats-03",
+    "roleId": "data-analyst",
+    "dimension": "statistics",
+    "question": "When an empirical data distribution is heavily right-skewed with extreme positive outliers, which measure of central tendency provides the most robust summary?",
+    "options": ["Mean", "Median", "Standard deviation", "Range"],
+    "correctIndex": 1,
+    "explanation": "The median represents the 50th percentile and is resistant to extreme skewness and outliers, whereas the mean is pulled in the direction of the tail."
   },
   {
-    "id": "da-q10",
-    "roleName": "Data Analyst",
-    "dimension": "Data Cleaning",
-    "question": "Which technique is commonly used to detect univariate outliers using quartiles?",
-    "options": [
-      "Interquartile Range (IQR) rule (1.5 * IQR)",
-      "K-Means clustering with 1 centroid",
-      "One-hot encoding",
-      "Fast Fourier Transform"
-    ],
-    "correctIndex": 0
+    "id": "q-da-dataviz-01",
+    "roleId": "data-analyst",
+    "dimension": "data-visualization",
+    "question": "Which visualization type is best suited to display the frequency distribution of a single continuous numerical variable partitioned into bins?",
+    "options": ["Histogram", "Pie Chart", "Scatter Plot", "Stacked Bar Chart"],
+    "correctIndex": 0,
+    "explanation": "A histogram groups continuous numbers into bins and visualizes frequencies as adjacent vertical columns."
   },
   {
-    "id": "da-q11",
-    "roleName": "Data Analyst",
-    "dimension": "Business Intelligence",
-    "question": "What is the primary purpose of a Star Schema in a data warehouse?",
-    "options": [
-      "To optimize queries for read-heavy reporting and analytics",
-      "To achieve third normal form (3NF) and avoid data duplication",
-      "To store audio and video files efficiently",
-      "To replace relational databases with flat text files"
-    ],
-    "correctIndex": 0
+    "id": "q-da-dataviz-02",
+    "roleId": "data-analyst",
+    "dimension": "data-visualization",
+    "question": "When examining whether an empirical linear or non-linear correlation exists between two continuous numeric variables, which chart is the industry standard?",
+    "options": ["Box Plot", "Line Chart", "Scatter Plot", "Treemap"],
+    "correctIndex": 2,
+    "explanation": "Scatter plots display values for two continuous variables as Cartesian points, making patterns, correlations, and clusters readily apparent."
   },
   {
-    "id": "da-q12",
-    "roleName": "Data Analyst",
-    "dimension": "Business Intelligence",
-    "question": "What distinguishes a Dimension table from a Fact table in analytical modeling?",
+    "id": "q-da-dataviz-03",
+    "roleId": "data-analyst",
+    "dimension": "data-visualization",
+    "question": "In data visualization best practices, why should 3D pie and bar charts generally be avoided in executive reporting?",
     "options": [
-      "Fact tables contain descriptive textual attributes, while Dimension tables contain metrics",
-      "Fact tables contain quantitative metrics and foreign keys, while Dimension tables provide context and attributes",
-      "Dimension tables cannot be queried using SQL",
-      "Fact tables are always cached entirely in browser memory"
+      "They take longer to compute and render in modern web browsers",
+      "They cannot accommodate legend entries with more than four categories",
+      "They cannot export properly to PDF or PNG formats",
+      "Perspective distortion skews visual angle and area perception, causing readers to misinterpret quantitative values"
     ],
-    "correctIndex": 1
+    "correctIndex": 3,
+    "explanation": "3D perspective effects distort geometric proportions (angles and heights), impairing accurate visual judgment and often misleading audiences."
   }
 ]

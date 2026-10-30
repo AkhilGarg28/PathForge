@@ -1,0 +1,173 @@
+{
+  "id": "sample-mern-roadmap-01",
+  "userId": "sample-user-001",
+  "roleId": "mern-developer",
+  "dimensionScores": {
+    "javascript": 3.0,
+    "react": 3.0,
+    "node-express": 3.0,
+    "databases-git": 3.0
+  },
+  "modules": [
+    {
+      "moduleId": "mern-mod-1",
+      "title": "JavaScript Foundations & Modern ES6+",
+      "description": "Master asynchronous JavaScript, promises, closures, array methods, and modern ES2022+ language syntax.",
+      "resourceTags": ["javascript", "es6", "async"],
+      "resources": [
+        {
+          "title": "MDN Web Docs: JavaScript Reference",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+          "type": "docs"
+        },
+        {
+          "title": "freeCodeCamp: Learn JavaScript Fundamentals for Beginners",
+          "url": "https://www.freecodecamp.org/news/learn-javascript-for-beginners/",
+          "type": "article"
+        },
+        {
+          "title": "freeCodeCamp: Learn JavaScript - Full Course for Beginners",
+          "url": "https://www.youtube.com/watch?v=PkZNo7MFNFg",
+          "type": "video"
+        }
+      ],
+      "estimatedHours": 10,
+      "status": "active",
+      "checkpointScore": null
+    },
+    {
+      "moduleId": "mern-mod-2",
+      "title": "React Core Principles & Hooks Architecture",
+      "description": "Build dynamic single-page applications utilizing functional components, custom hooks, reconciliation keys, and context.",
+      "resourceTags": ["react", "frontend", "hooks"],
+      "resources": [
+        {
+          "title": "React Official Documentation: Quick Start & Learn",
+          "url": "https://react.dev/learn",
+          "type": "docs"
+        },
+        {
+          "title": "freeCodeCamp: React Architecture & Component Patterns",
+          "url": "https://www.freecodecamp.org/news/tag/react/",
+          "type": "article"
+        },
+        {
+          "title": "freeCodeCamp: React Course for Beginners",
+          "url": "https://www.youtube.com/watch?v=bMknfKXIFA8",
+          "type": "video"
+        }
+      ],
+      "estimatedHours": 12,
+      "status": "locked",
+      "checkpointScore": null
+    },
+    {
+      "moduleId": "mern-mod-3",
+      "title": "Backend Development with Node.js & Express",
+      "description": "Construct RESTful APIs, apply middleware pipelines, handle JSON serialization, and architect modular controllers.",
+      "resourceTags": ["node", "express", "backend"],
+      "resources": [
+        {
+          "title": "Node.js Official Documentation & API Reference",
+          "url": "https://nodejs.org/en/docs",
+          "type": "docs"
+        },
+        {
+          "title": "Express.js Official Documentation & Routing Guide",
+          "url": "https://expressjs.com/",
+          "type": "article"
+        },
+        {
+          "title": "freeCodeCamp: Node.js and Express.js Full Course",
+          "url": "https://www.youtube.com/watch?v=Oe421EPjeBE",
+          "type": "video"
+        }
+      ],
+      "estimatedHours": 14,
+      "status": "locked",
+      "checkpointScore": null
+    },
+    {
+      "moduleId": "mern-mod-4",
+      "title": "Data Modeling & Aggregations with MongoDB",
+      "description": "Design schema definitions using Mongoose, execute multi-stage aggregations, and optimize queries using B-tree indexing.",
+      "resourceTags": ["mongodb", "database", "mongoose"],
+      "resources": [
+        {
+          "title": "MongoDB Official Manual & Schema Guides",
+          "url": "https://www.mongodb.com/docs/",
+          "type": "docs"
+        },
+        {
+          "title": "Pro Git Book: Official Documentation & Reference",
+          "url": "https://git-scm.com/book/en/v2",
+          "type": "article"
+        },
+        {
+          "title": "freeCodeCamp: Git and GitHub for Beginners",
+          "url": "https://www.youtube.com/watch?v=RGOj5yH7evk",
+          "type": "video"
+        }
+      ],
+      "estimatedHours": 12,
+      "status": "locked",
+      "checkpointScore": null
+    },
+    {
+      "moduleId": "mern-mod-5",
+      "title": "Full-Stack Authentication & Security with JWT",
+      "description": "Implement authentication using bcrypt password hashing, JWTs stored in secure httpOnly cookies, CORS policies, and rate limits.",
+      "resourceTags": ["auth", "jwt", "security"],
+      "resources": [
+        {
+          "title": "Node.js Official Documentation & API Reference",
+          "url": "https://nodejs.org/en/docs",
+          "type": "docs"
+        },
+        {
+          "title": "Express.js Official Documentation & Routing Guide",
+          "url": "https://expressjs.com/",
+          "type": "article"
+        },
+        {
+          "title": "freeCodeCamp: Node.js and Express.js Full Course",
+          "url": "https://www.youtube.com/watch?v=Oe421EPjeBE",
+          "type": "video"
+        }
+      ],
+      "estimatedHours": 10,
+      "status": "locked",
+      "checkpointScore": null
+    },
+    {
+      "moduleId": "mern-mod-6",
+      "title": "Full-Stack Integration, Git Collaboration & Deployment",
+      "description": "Wire frontend clients with backend endpoints, implement git branching workflows, and deploy to cloud platforms like Vercel and Render.",
+      "resourceTags": ["git", "deployment", "fullstack"],
+      "resources": [
+        {
+          "title": "React Official Documentation: Quick Start & Learn",
+          "url": "https://react.dev/learn",
+          "type": "docs"
+        },
+        {
+          "title": "Pro Git Book: Official Documentation & Reference",
+          "url": "https://git-scm.com/book/en/v2",
+          "type": "article"
+        },
+        {
+          "title": "freeCodeCamp: Git and GitHub for Beginners",
+          "url": "https://www.youtube.com/watch?v=RGOj5yH7evk",
+          "type": "video"
+        }
+      ],
+      "estimatedHours": 12,
+      "status": "locked",
+      "checkpointScore": null
+    }
+  ],
+  "readinessScore": 24,
+  "generatedBy": "fallback",
+  "createdAt": "2026-10-30T10:00:00.000Z",
+  "updatedAt": "2026-10-30T10:00:00.000Z"
+}

@@ -1,299 +1,197 @@
-import { useState, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Layout } from '../components/Layout.jsx';
+import { Card } from '../components/Card.jsx';
+import { Input } from '../components/Input.jsx';
+import { Button } from '../components/Button.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useToast } from '../hooks/useToast.js';
 import { usePageTitle } from '../hooks/usePageTitle.js';
-import { Card, Input, Button } from '../components/index.js';
-import {
-  validateName,
-  validateEmail,
-  validatePassword,
-  validateConfirmPassword,
-} from '../utils/validation.js';
 
-export default function SignupPage() {
-  const { signup } = useAuth();
+export function SignupPage() {
+  usePageTitle('Create Account');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+
+  const { user, loading: authLoading, signup } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  usePageTitle('Sign up');
 
-  // Controlled form state
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
-
-  // Touched state for onBlur validation
-  const [touched, setTouched] = useState({
-    name: false,
-    email: false,
-    password: false,
-    confirmPassword: false,
-  });
-
-  // Client validation errors
-  const [errors, setErrors] = useState({});
-
-  // Submitting state for double-submit prevention
-  const [submitting, setSubmitting] = useState(false);
-
-  // Server error message
-  const [serverError, setServerError] = useState(null);
-
-  // Input element refs for automated focus management
-  const nameRef = useRef(null);
-  const emailRef = useRef(null);
-  const passwordRef = useRef(null);
-  const confirmPasswordRef = useRef(null);
-
-  // Validation runner per field
-  const validateField = (field, value, allValues = formData) => {
-    switch (field) {
-      case 'name':
-        return validateName(value);
-      case 'email':
-        return validateEmail(value);
-      case 'password':
-        return validatePassword(value);
-      case 'confirmPassword':
-        return validateConfirmPassword(value, allValues.password);
-      default:
-        return null;
+  // Redirect away if already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (!user.roleId) {
+        navigate('/roles', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     }
-  };
+  }, [user, authLoading, navigate]);
 
-  const handleBlur = (field) => {
-    setTouched((prev) => ({ ...prev, [field]: true }));
-    const error = validateField(field, formData[field]);
-    setErrors((prev) => ({ ...prev, [field]: error }));
-  };
+  const validate = () => {
+    const errs = {};
+    const trimmedName = name.trim();
 
-  const handleChange = (field, value) => {
-    const updatedForm = { ...formData, [field]: value };
-    setFormData(updatedForm);
-    setServerError(null);
-
-    // If already touched, re-validate
-    if (touched[field]) {
-      const error = validateField(field, value, updatedForm);
-      setErrors((prev) => ({ ...prev, [field]: error }));
+    if (!trimmedName || trimmedName.length < 2) {
+      errs.name = 'Name must be at least 2 characters';
+    } else if (trimmedName.length > 50) {
+      errs.name = 'Name cannot exceed 50 characters';
     }
 
-    // If modifying password and confirmPassword was already touched, re-validate confirmPassword
-    if (field === 'password' && touched.confirmPassword) {
-      const confirmError = validateConfirmPassword(formData.confirmPassword, value);
-      setErrors((prev) => ({ ...prev, confirmPassword: confirmError }));
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email.trim())) {
+      errs.email = 'Please provide a valid email address';
     }
+
+    if (!password || password.length < 8) {
+      errs.password = 'Password must be at least 8 characters long';
+    } else if (!/[a-zA-Z]/.test(password)) {
+      errs.password = 'Password must contain at least one letter';
+    } else if (!/[0-9]/.test(password)) {
+      errs.password = 'Password must contain at least one number';
+    }
+
+    if (password !== confirmPassword) {
+      errs.confirmPassword = 'Passwords do not match';
+    }
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (submitting) return; // Double-submit prevention
-
-    // Validate all fields
-    const nameError = validateField('name', formData.name);
-    const emailError = validateField('email', formData.email);
-    const passwordError = validateField('password', formData.password);
-    const confirmError = validateField(
-      'confirmPassword',
-      formData.confirmPassword,
-      formData,
-    );
-
-    const validationErrors = {};
-    if (nameError) validationErrors.name = nameError;
-    if (emailError) validationErrors.email = emailError;
-    if (passwordError) validationErrors.password = passwordError;
-    if (confirmError) validationErrors.confirmPassword = confirmError;
-
-    setTouched({
-      name: true,
-      email: true,
-      password: true,
-      confirmPassword: true,
-    });
-    setErrors(validationErrors);
-    setServerError(null);
-
-    // If validation fails, focus the first erroneous input
-    if (Object.keys(validationErrors).length > 0) {
-      if (validationErrors.name) {
-        nameRef.current?.focus();
-      } else if (validationErrors.email) {
-        emailRef.current?.focus();
-      } else if (validationErrors.password) {
-        passwordRef.current?.focus();
-      } else if (validationErrors.confirmPassword) {
-        confirmPasswordRef.current?.focus();
-      }
+    if (!validate()) {
       return;
     }
 
-    setSubmitting(true);
+    setLoading(true);
     try {
-      await signup(formData.name.trim(), formData.email.trim(), formData.password);
-      toast.success('Account created successfully!');
-      navigate('/role-selection', { replace: true });
+      await signup({
+        name: name.trim(),
+        email: email.trim(),
+        password
+      });
+      toast.success('Account created successfully! Choose your career path.');
+      navigate('/roles');
     } catch (err) {
-      let message = 'Unable to create account. Please try again.';
-
-      if (err?.status === 409 || err?.code === 'EMAIL_ALREADY_EXISTS') {
-        message = 'An account with this email already exists.';
-        emailRef.current?.focus();
-      } else if (err?.status === 429 || err?.code === 'RATE_LIMIT_EXCEEDED') {
-        message = 'Too many attempts. Please try again later.';
-      } else if (err?.status === 0 || err?.code === 'NETWORK_ERROR') {
-        message = 'Unable to connect to PathForge server. Please check your network.';
-      } else if (err?.message) {
-        message = err.message;
-      }
-
-      setServerError(message);
-      toast.error(message);
+      // Server errors displayed exclusively via toast per contract
+      toast.error(err.message || 'Registration failed. Please try again.');
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
   return (
-    <main
-      id="main-content"
-      className="pf-auth-page"
-      style={{
-        maxWidth: 440,
-        margin: 'var(--space-4) auto',
-        padding: '0 var(--space-2)',
-      }}
-    >
-      <Card>
-        <h1 style={{ fontSize: 'var(--font-size-2xl)', marginBottom: 'var(--space-1)' }}>
-          Create Your Account
-        </h1>
-        <p
-          style={{
-            color: 'var(--color-text-secondary)',
-            fontSize: 'var(--font-size-sm)',
-            marginBottom: 'var(--space-3)',
-          }}
-        >
-          Start building your employer-ready skill roadmap.
-        </p>
-
-        {serverError && (
-          <div
-            role="alert"
-            aria-live="assertive"
-            style={{
-              padding: 'var(--space-1) var(--space-2)',
-              backgroundColor: 'var(--color-error-bg)',
-              border: '1px solid var(--color-error-border)',
-              color: 'var(--color-error-text)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: 'var(--space-3)',
-              fontSize: 'var(--font-size-sm)',
-            }}
-          >
-            {serverError}
+    <Layout maxWidth="480px">
+      <div style={{ marginTop: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
+        <Card>
+          <div style={{ textAlign: 'center', marginBottom: 'var(--space-3)' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-neutral-900)' }}>
+              Create Your Account
+            </h1>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+              Get your personalized AI skill roadmap
+            </p>
           </div>
-        )}
 
-        {/* Live announcement of client errors for screen readers */}
-        <div className="sr-only" role="status" aria-live="assertive">
-          {Object.values(errors).filter(Boolean).join('. ')}
-        </div>
+          <form onSubmit={handleSubmit} noValidate>
+            <Input
+              label="Full Name"
+              type="text"
+              placeholder="Alex Mercer"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
+              }}
+              error={errors.name}
+              disabled={loading}
+              required
+            />
 
-        <form
-          onSubmit={handleSubmit}
-          noValidate
-          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
-        >
-          <Input
-            ref={nameRef}
-            label="Full Name"
-            name="name"
-            autoComplete="name"
-            required
-            placeholder="Alex Morgan"
-            value={formData.name}
-            disabled={submitting}
-            error={touched.name ? errors.name : null}
-            onChange={(e) => handleChange('name', e.target.value)}
-            onBlur={() => handleBlur('name')}
-          />
+            <Input
+              label="Email Address"
+              type="email"
+              placeholder="alex@example.com"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
+              }}
+              error={errors.email}
+              disabled={loading}
+              required
+            />
 
-          <Input
-            ref={emailRef}
-            label="Email Address"
-            type="email"
-            name="email"
-            autoComplete="email"
-            required
-            placeholder="name@company.com"
-            value={formData.email}
-            disabled={submitting}
-            error={touched.email ? errors.email : null}
-            onChange={(e) => handleChange('email', e.target.value)}
-            onBlur={() => handleBlur('email')}
-          />
+            <Input
+              label="Password"
+              type="password"
+              placeholder="At least 8 characters with letter & number"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password) setErrors((prev) => ({ ...prev, password: null }));
+              }}
+              error={errors.password}
+              helperText={
+                !errors.password
+                  ? 'Must be at least 8 characters long, containing letters and numbers.'
+                  : null
+              }
+              disabled={loading}
+              required
+            />
 
-          <Input
-            ref={passwordRef}
-            label="Password"
-            type="password"
-            name="password"
-            autoComplete="new-password"
-            required
-            placeholder="At least 8 characters (1 letter, 1 number)"
-            hint="Minimum 8 characters with at least one letter and one number."
-            value={formData.password}
-            disabled={submitting}
-            error={touched.password ? errors.password : null}
-            onChange={(e) => handleChange('password', e.target.value)}
-            onBlur={() => handleBlur('password')}
-          />
+            <Input
+              label="Confirm Password"
+              type="password"
+              placeholder="Re-enter your password"
+              value={confirmPassword}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                if (errors.confirmPassword)
+                  setErrors((prev) => ({ ...prev, confirmPassword: null }));
+              }}
+              error={errors.confirmPassword}
+              disabled={loading}
+              required
+            />
 
-          <Input
-            ref={confirmPasswordRef}
-            label="Confirm Password"
-            type="password"
-            name="confirmPassword"
-            autoComplete="new-password"
-            required
-            placeholder="Re-enter your password"
-            value={formData.confirmPassword}
-            disabled={submitting}
-            error={touched.confirmPassword ? errors.confirmPassword : null}
-            onChange={(e) => handleChange('confirmPassword', e.target.value)}
-            onBlur={() => handleBlur('confirmPassword')}
-          />
-
-          <div style={{ marginTop: 'var(--space-1)' }}>
             <Button
               type="submit"
               variant="primary"
-              size="md"
-              loading={submitting}
-              disabled={submitting}
-              style={{ width: '100%' }}
+              size="lg"
+              fullWidth
+              loading={loading}
+              disabled={loading}
+              style={{ marginTop: 'var(--space-2)' }}
             >
-              Sign up
+              Sign Up
             </Button>
-          </div>
-        </form>
+          </form>
 
-        <p
-          style={{
-            marginTop: 'var(--space-3)',
-            fontSize: 'var(--font-size-sm)',
-            color: 'var(--color-text-muted)',
-            textAlign: 'center',
-          }}
-        >
-          Already have an account? <Link to="/login">Log in</Link>
-        </p>
-      </Card>
-    </main>
+          <div
+            style={{
+              textAlign: 'center',
+              marginTop: 'var(--space-3)',
+              fontSize: '0.875rem',
+              color: 'var(--color-text-muted)'
+            }}
+          >
+            Already have an account?{' '}
+            <Link to="/login" style={{ fontWeight: 600 }}>
+              Sign In
+            </Link>
+          </div>
+        </Card>
+      </div>
+    </Layout>
   );
 }
+
+export default SignupPage;

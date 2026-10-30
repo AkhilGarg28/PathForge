@@ -1,33 +1,49 @@
 /**
- * Middleware to sanitize user input against MongoDB operator injection.
- * Strips any keys starting with '$' or containing '.' from req.body, req.params, and req.query.
+ * NoSQL Injection Sanitization Middleware
+ * Recursively scans req.body, req.query, and req.params for prohibited keys.
+ * Rejects any payload containing keys starting with '$' or containing dots '.'
+ * to prevent MongoDB query selector injection and field path traversal attacks.
  */
-const sanitize = (target) => {
-  if (!target || typeof target !== 'object') {
-    return target;
+
+export function hasForbiddenMongoKey(value) {
+  if (!value || typeof value !== 'object') {
+    return false;
   }
 
-  if (Array.isArray(target)) {
-    target.forEach((item) => sanitize(item));
-    return target;
-  }
-
-  Object.keys(target).forEach((key) => {
-    if (key.startsWith('$') || key.includes('.')) {
-      delete target[key];
-    } else {
-      sanitize(target[key]);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (hasForbiddenMongoKey(item)) {
+        return true;
+      }
     }
-  });
+    return false;
+  }
 
-  return target;
-};
+  for (const key of Object.keys(value)) {
+    if (key.startsWith('$') || key.includes('.')) {
+      return true;
+    }
+    if (hasForbiddenMongoKey(value[key])) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 const mongoSanitize = (req, res, next) => {
-  if (req.body) sanitize(req.body);
-  if (req.params) sanitize(req.params);
-  if (req.query) sanitize(req.query);
+  if (
+    hasForbiddenMongoKey(req.body) ||
+    hasForbiddenMongoKey(req.query) ||
+    hasForbiddenMongoKey(req.params)
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Malformed request: parameter keys cannot contain '$' or '.'"
+    });
+  }
+
   next();
 };
 
-module.exports = mongoSanitize;
+export default mongoSanitize;

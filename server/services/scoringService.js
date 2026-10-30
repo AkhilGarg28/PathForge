@@ -1,110 +1,105 @@
 /**
- * Pure scoring functions for PathForge diagnostic assessments & module checkpoints
- */
-
-/**
- * Calculates dimension scores on a 0-5 scale.
- * Formula per dimension: (correct / total) * 5, rounded to 1 decimal place.
+ * Pure scoring function evaluating assessment answers against a set of diagnostic questions.
  *
- * @param {Array<{id: string, dimension: string, correctIndex: number}>} questions
- * @param {Array<{questionId: string, selectedIndex: number}>} answers
- * @returns {Record<string, number>} dimensionScores
+ * @param {Array} questions - Diagnostic questions with { id, dimension, correctIndex, options }
+ * @param {Array} answers - User answers with { questionId, selectedIndex }
+ * @returns {Object} { dimensionScores: { [dimension]: number }, overall: number, weakDimensions: string[] }
  */
-const scoreDiagnostic = (questions, answers) => {
-  if (!Array.isArray(questions) || !Array.isArray(answers)) {
-    throw new Error('Questions and answers must be arrays');
+export function scoreAnswers(questions, answers) {
+  if (!Array.isArray(questions) || questions.length === 0) {
+    throw new Error('questions must be a non-empty array');
   }
 
-  const answerMap = new Map();
-  answers.forEach((ans) => {
-    answerMap.set(ans.questionId, ans.selectedIndex);
-  });
+  if (!Array.isArray(answers)) {
+    throw new Error('answers must be an array');
+  }
 
-  // Tally counts per dimension: { total: number, correct: number }
+  // 1. Build question lookup map
+  const questionMap = new Map();
+  for (const q of questions) {
+    if (!q.id || !q.dimension || typeof q.correctIndex !== 'number') {
+      throw new Error(`Invalid question structure for ID: ${q?.id}`);
+    }
+    questionMap.set(q.id, q);
+  }
+
+  // 2. Validate answers for duplicates, unknown question IDs, and out-of-range indices
+  const seenQuestionIds = new Set();
+  const answerMap = new Map();
+
+  for (const ans of answers) {
+    if (!ans || typeof ans.questionId !== 'string') {
+      throw new Error('Each answer must provide a valid questionId string');
+    }
+
+    if (seenQuestionIds.has(ans.questionId)) {
+      throw new Error(`Duplicate answer for question ID: ${ans.questionId}`);
+    }
+    seenQuestionIds.add(ans.questionId);
+
+    const question = questionMap.get(ans.questionId);
+    if (!question) {
+      throw new Error(`Unknown question ID: ${ans.questionId}`);
+    }
+
+    const maxOptions = Array.isArray(question.options) ? question.options.length : 4;
+    if (
+      typeof ans.selectedIndex !== 'number' ||
+      !Number.isInteger(ans.selectedIndex) ||
+      ans.selectedIndex < 0 ||
+      ans.selectedIndex >= maxOptions
+    ) {
+      throw new Error(
+        `Invalid selectedIndex '${ans.selectedIndex}' for question ID: ${ans.questionId}. Expected integer between 0 and ${maxOptions - 1}.`
+      );
+    }
+
+    answerMap.set(ans.questionId, ans.selectedIndex);
+  }
+
+  // 3. Group questions by dimension and count correct answers
   const dimensionStats = {};
 
-  questions.forEach((q) => {
-    const dim = q.dimension;
-    if (!dimensionStats[dim]) {
-      dimensionStats[dim] = { total: 0, correct: 0 };
+  for (const q of questions) {
+    if (!dimensionStats[q.dimension]) {
+      dimensionStats[q.dimension] = { total: 0, correct: 0 };
     }
-    dimensionStats[dim].total += 1;
+    dimensionStats[q.dimension].total += 1;
 
-    const selectedIndex = answerMap.get(q.id);
-    if (selectedIndex !== undefined && selectedIndex === q.correctIndex) {
-      dimensionStats[dim].correct += 1;
+    // Missing answers are treated as wrong (selectedIndex will be undefined)
+    const userSelected = answerMap.get(q.id);
+    if (userSelected !== undefined && userSelected === q.correctIndex) {
+      dimensionStats[q.dimension].correct += 1;
     }
-  });
-
-  const dimensionScores = {};
-
-  Object.entries(dimensionStats).forEach(([dim, stats]) => {
-    if (stats.total === 0) {
-      dimensionScores[dim] = 0;
-    } else {
-      const rawScore = (stats.correct / stats.total) * 5;
-      dimensionScores[dim] = Math.round(rawScore * 10) / 10;
-    }
-  });
-
-  return dimensionScores;
-};
-
-/**
- * Calculates an overall readiness score from 0 to 100 based on dimension scores.
- *
- * @param {Record<string, number> | Map<string, number>} dimensionScores
- * @returns {number} readinessScore (0-100)
- */
-const calculateReadiness = (dimensionScores) => {
-  if (!dimensionScores) return 0;
-
-  const scores =
-    dimensionScores instanceof Map
-      ? Array.from(dimensionScores.values())
-      : Object.values(dimensionScores);
-
-  if (scores.length === 0) return 0;
-
-  const totalSum = scores.reduce((sum, score) => sum + (Number(score) || 0), 0);
-  const maxPossible = scores.length * 5;
-
-  const percentage = (totalSum / maxPossible) * 100;
-  return Math.round(percentage);
-};
-
-/**
- * Scores checkpoint questions on a 0-100 percentage scale.
- *
- * @param {Array<{id: string, correctIndex: number}>} questions
- * @param {Array<{questionId: string, selectedIndex: number}>} answers
- * @returns {number} score (0-100)
- */
-const scoreCheckpoint = (questions, answers) => {
-  if (!Array.isArray(questions) || !Array.isArray(answers)) {
-    throw new Error('Questions and answers must be arrays');
   }
 
-  if (questions.length === 0) return 100;
+  // 4. Calculate score per dimension (0 to 5, 1 decimal place) and detect weak dimensions (< 3.0)
+  const dimensionScores = {};
+  const weakDimensions = [];
+  let totalScoreSum = 0;
+  let dimensionCount = 0;
 
-  const answerMap = new Map();
-  answers.forEach((ans) => {
-    answerMap.set(ans.questionId, ans.selectedIndex);
-  });
+  for (const [dimension, stats] of Object.entries(dimensionStats)) {
+    const rawScore = stats.total > 0 ? (stats.correct / stats.total) * 5 : 0;
+    const score = Number(rawScore.toFixed(1));
 
-  let correctCount = 0;
-  questions.forEach((q) => {
-    const selected = answerMap.get(q.id);
-    if (selected !== undefined && selected === q.correctIndex) {
-      correctCount += 1;
+    dimensionScores[dimension] = score;
+    if (score < 3.0) {
+      weakDimensions.push(dimension);
     }
-  });
 
-  return Math.round((correctCount / questions.length) * 100);
-};
+    totalScoreSum += score;
+    dimensionCount += 1;
+  }
 
-module.exports = {
-  scoreDiagnostic,
-  calculateReadiness,
-  scoreCheckpoint,
-};
+  // Overall average across dimensions (0 to 5, 1 decimal place)
+  const overall = dimensionCount > 0 ? Number((totalScoreSum / dimensionCount).toFixed(1)) : 0.0;
+
+  return {
+    dimensionScores,
+    overall,
+    weakDimensions
+  };
+}
+
+export default { scoreAnswers };

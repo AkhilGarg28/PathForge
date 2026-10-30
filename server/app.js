@@ -1,74 +1,89 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const morgan = require('morgan');
-const cookieParser = require('cookie-parser');
-const env = require('./config/env');
-const authRoutes = require('./routes/authRoutes');
-const roleRoutes = require('./routes/roleRoutes');
-const userRoutes = require('./routes/userRoutes');
-const diagnosticRoutes = require('./routes/diagnosticRoutes');
-const roadmapRoutes = require('./routes/roadmapRoutes');
-const mongoSanitize = require('./middleware/mongoSanitize');
-const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import morgan from 'morgan';
+import compression from 'compression';
+
+import notFound from './middleware/notFound.js';
+import errorHandler from './middleware/errorHandler.js';
+import mongoSanitize from './middleware/mongoSanitize.js';
+import { generalLimiter } from './middleware/rateLimiter.js';
+import authRoutes from './routes/authRoutes.js';
+import roleRoutes from './routes/roleRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import diagnosticRoutes from './routes/diagnosticRoutes.js';
+import roadmapRoutes from './routes/roadmapRoutes.js';
 
 const app = express();
 
-// Trust proxy
+// Set trust proxy for reverse proxies (Render, AWS, NGINX)
+// Ensures correct client IP identification for express-rate-limit
 app.set('trust proxy', 1);
 
-// Middleware
+// Security HTTP headers
 app.use(helmet());
-app.use(compression());
-app.use(
-  morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev', {
-    skip: () => env.NODE_ENV === 'test',
-  })
-);
-app.use(express.json({ limit: '100kb' }));
-app.use(mongoSanitize);
-app.use(cookieParser());
-// CORS configuration reading CLIENT_URL (supports single or comma-separated origins, normalizes trailing slashes)
-const allowedOrigins = (env.CLIENT_URL || '')
-  .split(',')
-  .map((url) => url.trim().replace(/\/+$/, ''))
-  .filter(Boolean);
+
+// CORS configuration supporting credentials from frontend origin (strictly disallow wildcards)
+const clientOrigin = process.env.CLIENT_URL || 'http://localhost:5173';
+if (clientOrigin === '*') {
+  throw new Error("CORS wildcard origin '*' is strictly prohibited when credentials are enabled.");
+}
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, curl, smoke tests, server-to-server)
-      if (!origin) return callback(null, true);
-
-      const cleanOrigin = origin.replace(/\/+$/, '');
-      if (
-        allowedOrigins.includes(cleanOrigin) ||
-        allowedOrigins.includes(origin) ||
-        (env.NODE_ENV === 'development' && origin.startsWith('http://localhost:'))
-      ) {
-        return callback(null, true);
-      }
-      return callback(new Error(`Not allowed by CORS: ${origin}`));
-    },
+    origin: clientOrigin,
     credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
   })
 );
 
-// Routes
+// Body parsing with strict payload size limit
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// NoSQL Injection sanitization middleware (blocks keys with '$' or '.')
+app.use(mongoSanitize);
+
+// Cookie parsing for httpOnly JWT handling
+app.use(cookieParser());
+
+// Response compression
+app.use(compression());
+
+// Request logging (development only)
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+// General rate limiter for all /api endpoints
+app.use('/api', generalLimiter);
+
+// Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.status(200).json({
+    success: true,
+    message: 'Server is healthy',
+    data: {
+      status: 'ok',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    }
+  });
 });
+
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/diagnostic', diagnosticRoutes);
 app.use('/api/roadmap', roadmapRoutes);
 
-// Catch unknown routes
-app.use(notFoundHandler);
+// 404 Route Catch-all
+app.use(notFound);
 
-// Central error handler
+// Central Error Handler
 app.use(errorHandler);
 
-module.exports = app;
+export default app;

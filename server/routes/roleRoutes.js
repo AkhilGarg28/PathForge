@@ -1,9 +1,10 @@
-const express = require('express');
-const { getRoles } = require('../controllers/roleController');
+import { Router } from 'express';
+import { getRoles } from '../controllers/roleController.js';
+import authMiddleware from '../middleware/auth.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
-const router = express.Router();
+const router = Router();
 
-// GET /api/roles - public
-router.get('/', getRoles);
+router.get('/', authMiddleware, asyncHandler(getRoles));
 
-module.exports = router;
+export default router;

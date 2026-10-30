@@ -1,161 +1,151 @@
-import { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import Button from './Button.jsx';
-import './Navbar.css';
+import { Button } from './Button.jsx';
 
-/**
- * Main application navigation bar.
- * Adapts dynamically between authenticated and guest views with mobile drawer support.
- */
-export default function Navbar() {
+export function Navbar({ className = '' }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const hamburgerRef = useRef(null);
 
   const handleLogout = async () => {
-    setMobileMenuOpen(false);
     await logout();
     navigate('/login');
   };
 
-  const closeMenu = () => setMobileMenuOpen(false);
-
-  // Close mobile menu on Escape key and on window resize > 768px
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setMobileMenuOpen(false);
-        hamburgerRef.current?.focus();
-      }
-    };
-
-    const handleResize = () => {
-      if (window.innerWidth > 768) {
-        setMobileMenuOpen(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [mobileMenuOpen]);
-
   return (
-    <header className="pf-navbar">
-      <div className="pf-navbar__container">
-        {/* Brand */}
+    <header
+      className={className}
+      style={{
+        backgroundColor: 'var(--color-surface)',
+        borderBottom: '1px solid var(--color-border)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        boxShadow: 'var(--shadow-sm)'
+      }}
+    >
+      <div
+        className="container"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: '64px'
+        }}
+      >
+        {/* Brand / Logo */}
         <Link
           to={user ? '/dashboard' : '/'}
-          className="pf-navbar__brand"
-          onClick={closeMenu}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-1)',
+            fontWeight: 800,
+            fontSize: '1.25rem',
+            color: 'var(--color-primary-900)',
+            textDecoration: 'none'
+          }}
         >
-          <span className="pf-navbar__brand-logo" aria-hidden="true">
-            ⚡
-          </span>
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--color-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--color-neutral-0)',
+              fontWeight: 800
+            }}
+          >
+            P
+          </div>
           <span>PathForge</span>
         </Link>
 
-        {/* Desktop Links */}
-        <nav className="pf-navbar__links-desktop" aria-label="Main Navigation">
-          <Link to="/styleguide" className="pf-navbar__link">
-            Styleguide
-          </Link>
-
+        {/* Center / Right Navigation */}
+        <nav style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           {user ? (
             <>
-              <Link to="/dashboard" className="pf-navbar__link">
+              <Link
+                to="/dashboard"
+                style={{
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: 'var(--color-neutral-700)',
+                  padding: 'var(--space-0-5) var(--space-1)'
+                }}
+              >
                 Dashboard
               </Link>
-              <Link to="/settings" className="pf-navbar__link">
+
+              <Link
+                to="/settings"
+                style={{
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: 'var(--color-neutral-700)',
+                  padding: 'var(--space-0-5) var(--space-1)'
+                }}
+              >
                 Settings
               </Link>
-              <span className="pf-navbar__user-tag" title={user.email}>
-                {user.name}
-              </span>
+
+              {/* User Pill */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-1)',
+                  backgroundColor: 'var(--color-surface-subtle)',
+                  padding: '4px 12px',
+                  borderRadius: 'var(--radius-full)',
+                  border: '1px solid var(--color-border)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600
+                }}
+              >
+                <div
+                  style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--color-primary-100)',
+                    color: 'var(--color-primary-800)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.6875rem'
+                  }}
+                >
+                  {user.name?.charAt(0) || 'U'}
+                </div>
+                <span>{user.name}</span>
+              </div>
+
               <Button variant="ghost" size="sm" onClick={handleLogout}>
-                Log out
+                Sign Out
               </Button>
             </>
           ) : (
             <>
-              <Link to="/login" className="pf-navbar__link">
-                Log in
+              <Link to="/login">
+                <Button variant="ghost" size="sm">
+                  Sign In
+                </Button>
               </Link>
               <Link to="/signup">
                 <Button variant="primary" size="sm">
-                  Get started
+                  Get Started
                 </Button>
               </Link>
             </>
           )}
         </nav>
-
-        {/* Mobile Hamburger Button */}
-        <button
-          ref={hamburgerRef}
-          type="button"
-          className="pf-navbar__hamburger"
-          aria-expanded={mobileMenuOpen}
-          aria-controls="pf-navbar-mobile-menu"
-          aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-          onClick={() => setMobileMenuOpen((prev) => !prev)}
-        >
-          <span aria-hidden="true">{mobileMenuOpen ? '✕' : '☰'}</span>
-        </button>
-      </div>
-
-      {/* Mobile Drawer */}
-      <div
-        id="pf-navbar-mobile-menu"
-        role="region"
-        aria-label="Mobile Navigation"
-        className={`pf-navbar__mobile-menu ${mobileMenuOpen ? 'pf-navbar__mobile-menu--open' : ''}`}
-        aria-hidden={!mobileMenuOpen}
-      >
-        <Link to="/styleguide" className="pf-navbar__link" onClick={closeMenu}>
-          Styleguide
-        </Link>
-
-        {user ? (
-          <>
-            <Link to="/dashboard" className="pf-navbar__link" onClick={closeMenu}>
-              Dashboard
-            </Link>
-            <Link to="/settings" className="pf-navbar__link" onClick={closeMenu}>
-              Settings
-            </Link>
-            <div style={{ padding: 'var(--space-1) 0' }}>
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={handleLogout}
-                style={{ width: '100%' }}
-              >
-                Log out ({user.name})
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <Link to="/login" className="pf-navbar__link" onClick={closeMenu}>
-              Log in
-            </Link>
-            <Link to="/signup" onClick={closeMenu} style={{ textDecoration: 'none' }}>
-              <Button variant="primary" size="md" style={{ width: '100%' }}>
-                Get started
-              </Button>
-            </Link>
-          </>
-        )}
       </div>
     </header>
   );
 }
+
+export default Navbar;

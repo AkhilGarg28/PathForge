@@ -1,185 +1,477 @@
-const env = require('../config/env');
-const questionService = require('./questionService');
+/**
+ * PathForge LLM Integration Service
+ * Provides swappable LLM provider abstractions (Gemini default, OpenAI swappable),
+ * prompt synthesis, JSON-mode generation, defensive response sanitization, and typed error handling.
+ */
+
+// ---------------------------------------------------------------------------
+// 1. Typed Error Classes
+// ---------------------------------------------------------------------------
+
+export class LLMError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = 'LLMError';
+    this.type = options.type || 'LLM_ERROR';
+    this.details = options.details;
+  }
+}
+
+export class LLMTimeoutError extends LLMError {
+  constructor(message = 'LLM generation request timed out', options = {}) {
+    super(message, { ...options, type: 'TIMEOUT' });
+    this.name = 'LLMTimeoutError';
+  }
+}
+
+export class LLMApiError extends LLMError {
+  constructor(message = 'LLM API request failed', options = {}) {
+    super(message, { ...options, type: 'API_ERROR' });
+    this.name = 'LLMApiError';
+    this.statusCode = options.statusCode;
+  }
+}
+
+export class LLMParseError extends LLMError {
+  constructor(message = 'Failed to parse LLM response as JSON', options = {}) {
+    super(message, { ...options, type: 'PARSE_ERROR' });
+    this.name = 'LLMParseError';
+    this.rawText = options.rawText;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 2. Secret Redaction Helper
+// ---------------------------------------------------------------------------
+
+export function redactSecrets(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text.replace(
+    /(?:key=|Bearer\s+|x-goog-api-key['"]?:\s*['"]?)[a-zA-Z0-9_-]{10,}/gi,
+    (match) => match.slice(0, 10) + '...[REDACTED]'
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 3. Prompt Construction
+// ---------------------------------------------------------------------------
 
 /**
- * Generates a deterministic, curriculum-aligned fallback roadmap from local data.
+ * Builds a structured, constraint-enforcing curriculum prompt for the LLM.
  *
- * @param {string} roleName
- * @param {Record<string, number>} dimensionScores
- * @returns {Array<object>} modules
+ * @param {Object} params
+ * @param {string} params.roleName - Target role name (e.g. "MERN Developer")
+ * @param {Record<string, number>} params.dimensionScores - Dimension scores (0.0 to 5.0)
+ * @param {string[]} params.allowedTags - Whitelist of resource tags from resources.json
+ * @returns {string} Fully formulated prompt
  */
-const generateFallbackRoadmap = (roleName, dimensionScores = {}) => {
-  // Get all unique dimensions for this role from cached questions
-  const roleQuestions = questionService.getQuestionsByRole(roleName);
-  const dimensionSet = new Set(roleQuestions.map((q) => q.dimension));
-
-  // If no questions match roleName, use dimensions from scores or defaults
-  if (dimensionSet.size === 0) {
-    Object.keys(dimensionScores).forEach((d) => dimensionSet.add(d));
+export function buildPrompt({ roleName, dimensionScores = {}, allowedTags = [] }) {
+  if (!roleName || typeof roleName !== 'string') {
+    throw new Error('roleName is required to build LLM prompt');
   }
 
-  // Sort dimensions starting from weakest score to strongest
-  const sortedDimensions = Array.from(dimensionSet).sort((a, b) => {
-    const scoreA = dimensionScores[a] !== undefined ? dimensionScores[a] : 5;
-    const scoreB = dimensionScores[b] !== undefined ? dimensionScores[b] : 5;
-    return scoreA - scoreB;
-  });
+  // Sort dimensions from weakest (lowest score) to strongest (highest score)
+  const sortedDimensions = Object.entries(dimensionScores)
+    .map(([dim, score]) => ({
+      dimension: dim,
+      score: Number(score) || 0
+    }))
+    .sort((a, b) => a.score - b.score);
 
-  const modules = sortedDimensions.map((dim, idx) => {
-    const score = dimensionScores[dim] !== undefined ? dimensionScores[dim] : 2.5;
-    const resources = questionService.getResourcesByDimension(dim, roleName);
+  const formattedDimensions =
+    sortedDimensions.length > 0
+      ? sortedDimensions
+          .map(
+            (d) =>
+              `- ${d.dimension}: ${d.score.toFixed(1)} / 5.0 ${
+                d.score < 3.0 ? '(PRIORITY SKILL GAP - NEEDS REMEDIATION)' : '(COMPETENT)'
+              }`
+          )
+          .join('\n')
+      : '- General Core Competencies (score: 0.0 / 5.0)';
 
-    // Allocate more estimated hours for weaker dimensions (score < 3)
-    const estimatedHours = score < 2.5 ? 15 : score < 4 ? 12 : 8;
+  const allowedTagsFormatted = JSON.stringify(allowedTags.map((t) => String(t).toLowerCase()));
 
-    const slug = dim.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const moduleId = `mod-${idx + 1}-${slug}`;
+  return `You are an expert career curriculum architect specializing in engineering and data science education.
+Your task is to design a personalized, outcome-oriented learning roadmap for a student targeting the role of "${roleName}".
+
+STUDENT DIAGNOSTIC ASSESSMENT RESULTS:
+The student completed a skill assessment across core dimensions (scale: 0.0 to 5.0):
+${formattedDimensions}
+
+CURRICULUM ARCHITECTURE RULES (STRICT COMPLIANCE REQUIRED):
+1. MODULE COUNT & SEQUENCING:
+   - Generate between 5 and 8 learning modules total.
+   - Modules MUST be ordered strictly from the student's WEAKEST skill dimensions to their STRONGEST dimensions.
+   - Dedicate foundational, comprehensive modules to priority skill gap areas (scores < 3.0).
+2. RESOURCE TAGS CONSTRAINTS:
+   - Every module must include an array of "resourceTags".
+   - You MUST ONLY choose tags from this explicit allowed tags list:
+     ${allowedTagsFormatted}
+   - NEVER invent, alter, or introduce tags outside of this list.
+3. NEVER WRITE URLS OR SPECIFIC LINKS:
+   - Do NOT include resource URLs, hyperlinks, or external links anywhere in the response.
+   - Resource links are automatically bound by our system from verified databases using your specified "resourceTags".
+4. REALISTIC ESTIMATED HOURS:
+   - Assign realistic study and practice hours ("estimatedHours") as positive integers between 5 and 30 hours per module.
+5. MODULE IDENTIFIERS:
+   - Each module must have a distinct, URL-friendly "moduleId" formatted in lowercase kebab-case (e.g. "react-state-architecture", "node-express-rest-apis").
+6. PRIVACY & SECURITY:
+   - NEVER include personal identifiable information, student names, or email addresses in the output.
+7. OUTPUT FORMAT:
+   - Return ONLY a single raw valid JSON object matching the exact schema below.
+   - DO NOT include markdown code fences (like \`\`\`json or \`\`\`), greetings, explanations, or prose.
+
+EXACT JSON SCHEMA:
+{
+  "modules": [
+    {
+      "moduleId": "kebab-case-unique-identifier",
+      "title": "Concise, descriptive title for the module",
+      "description": "2-3 sentences explaining core conceptual goals, practical projects, and expected competencies.",
+      "resourceTags": ["allowed-tag-1", "allowed-tag-2"],
+      "estimatedHours": 10
+    }
+  ]
+}`;
+}
+
+// ---------------------------------------------------------------------------
+// 4. Defensive Response Parsing & Normalization
+// ---------------------------------------------------------------------------
+
+/**
+ * Defensively cleans and parses the raw text returned by the LLM.
+ * Strips code fences, enforces JSON structure, kebab-cases module IDs,
+ * filters resource tags against the allowed whitelist, and validates estimated hours.
+ *
+ * @param {string} rawText - Raw output from model
+ * @param {string[]} allowedTags - Whitelisted resource tags
+ * @returns {Array<Object>} Validated module array
+ */
+export function cleanAndParseLLMResponse(rawText, allowedTags = []) {
+  if (!rawText || typeof rawText !== 'string') {
+    throw new LLMParseError('Empty or non-string response received from LLM', { rawText });
+  }
+
+  let cleaned = rawText.trim();
+
+  // Strip leading and trailing markdown code fences if present (```json ... ``` or ``` ... ```)
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    throw new LLMParseError(`Failed to parse LLM response as JSON: ${err.message}`, {
+      rawText: cleaned
+    });
+  }
+
+  const rawModules = Array.isArray(parsed) ? parsed : parsed?.modules;
+  if (!Array.isArray(rawModules) || rawModules.length === 0) {
+    throw new LLMParseError("LLM response did not contain a valid 'modules' array", {
+      rawText: cleaned
+    });
+  }
+
+  const allowedSet = new Set(allowedTags.map((t) => String(t).toLowerCase().trim()));
+
+  const normalizedModules = rawModules.map((mod, index) => {
+    if (!mod || typeof mod !== 'object') {
+      throw new LLMParseError(`Module item at index ${index} is not a valid object`, {
+        rawText: cleaned
+      });
+    }
+
+    // Enforce clean kebab-case identifier
+    const rawId = mod.moduleId || `module-${index + 1}`;
+    const moduleId =
+      String(rawId)
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || `module-${index + 1}`;
+
+    const title = String(mod.title || `Module ${index + 1}`).trim();
+    const description = String(mod.description || '').trim();
+
+    // Whitelist-filter resourceTags
+    let resourceTags = Array.isArray(mod.resourceTags)
+      ? mod.resourceTags.map((t) => String(t).toLowerCase().trim()).filter((t) => allowedSet.has(t))
+      : [];
+
+    // Fallback: If no valid tags survived the filter, assign first allowed tag if available
+    if (resourceTags.length === 0 && allowedTags.length > 0) {
+      resourceTags = [allowedTags[0].toLowerCase().trim()];
+    }
+
+    // Enforce realistic bounds on estimated hours (5 - 40 hours)
+    const parsedHours = Number(mod.estimatedHours);
+    const estimatedHours = Number.isFinite(parsedHours)
+      ? Math.max(5, Math.min(40, Math.round(parsedHours)))
+      : 10;
 
     return {
       moduleId,
-      title: `${dim} Mastery & Applications`,
-      description: `Comprehensive module covering ${dim} for ${roleName}. Tailored for baseline proficiency score of ${score}/5.`,
-      resourceTags: [dim, roleName, 'Curated'],
-      resources: resources.length > 0 ? resources : [
-        {
-          title: `${dim} Overview Guide`,
-          url: 'https://developer.mozilla.org',
-          type: 'docs',
-        },
-      ],
-      estimatedHours,
-      status: idx === 0 ? 'active' : 'locked',
-      checkpointScore: null,
+      title,
+      description,
+      resourceTags,
+      estimatedHours
     };
   });
 
-  return modules;
-};
+  return normalizedModules;
+}
+
+// ---------------------------------------------------------------------------
+// 5. Provider Implementations (Gemini & OpenAI)
+// ---------------------------------------------------------------------------
 
 /**
- * Calls Gemini API to generate structured roadmap modules.
- * Note: Never passes personal data (user name or email) to LLM.
- *
- * @param {string} roleName
- * @param {Record<string, number>} dimensionScores
- * @returns {Promise<Array<object>>}
+ * Base LLM Provider Interface
  */
-const callGeminiApi = async (roleName, dimensionScores) => {
-  const model = env.GEMINI_MODEL || 'gemini-1.5-pro';
-  const apiKey = env.GEMINI_API_KEY;
+export class BaseLLMProvider {
+  /**
+   * Generates content from prompt
+   * @param {Object} options
+   * @param {string} options.prompt
+   * @param {number} [options.timeoutMs]
+   * @param {boolean} [options.jsonMode]
+   * @returns {Promise<string>} Raw text output
+   */
+  async generateContent(_options) {
+    throw new Error('generateContent must be implemented by provider');
+  }
+}
 
-  if (!apiKey || apiKey.trim() === '') {
-    throw new Error('GEMINI_API_KEY is not configured');
+/**
+ * Google Gemini Provider (REST implementation via native fetch)
+ * Communicates with generativelanguage.googleapis.com
+ */
+export class GeminiProvider extends BaseLLMProvider {
+  constructor({
+    apiKey = process.env.GEMINI_API_KEY,
+    model = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+  } = {}) {
+    super();
+    this.apiKey = apiKey;
+    this.model = model;
+    this.name = 'gemini';
   }
 
-  // Anonymized prompt: contains ONLY role and aggregated dimension scores
-  const prompt = `You are an expert technical curriculum designer.
-Generate a structured, 6-module learning roadmap for a learner pursuing the role "${roleName}".
-Their diagnostic dimension scores (0.0 to 5.0 scale) are:
-${JSON.stringify(dimensionScores, null, 2)}
+  async generateContent({ prompt, timeoutMs = 15000, jsonMode = true }) {
+    if (!this.apiKey) {
+      throw new LLMApiError('GEMINI_API_KEY is not configured');
+    }
 
-Instructions:
-1. Prioritize weaker skill dimensions earlier in the roadmap.
-2. Return ONLY a valid JSON array of 6 module objects matching this schema:
-[
-  {
-    "moduleId": "string (unique kebab-case e.g. mod-1-react-fundamentals)",
-    "title": "string",
-    "description": "string",
-    "resourceTags": ["string"],
-    "resources": [
-      {
-        "title": "string",
-        "url": "valid url string",
-        "type": "video" | "article" | "docs"
-      }
-    ],
-    "estimatedHours": number (integer between 5 and 25)
-  }
-]`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    // Use x-goog-api-key header to prevent exposing key in query URLs
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
-    },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
+    const requestBody = {
+      contents: [
+        {
+          parts: [{ text: prompt }]
+        }
+      ],
       generationConfig: {
-        responseMimeType: 'application/json',
         temperature: 0.2,
-      },
-    }),
+        ...(jsonMode ? { responseMimeType: 'application/json' } : {})
+      }
+    };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': this.apiKey
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        let errMessage = `Gemini API HTTP Error ${response.status}`;
+        try {
+          const errData = await response.json();
+          if (errData?.error?.message) {
+            errMessage = redactSecrets(errData.error.message);
+          }
+        } catch {
+          // ignore JSON parse error on error response
+        }
+        throw new LLMApiError(errMessage, { statusCode: response.status });
+      }
+
+      const data = await response.json();
+      const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!candidateText || typeof candidateText !== 'string') {
+        throw new LLMApiError('Gemini API returned empty candidate content');
+      }
+
+      return candidateText;
+    } catch (err) {
+      if (err.name === 'AbortError' || controller.signal.aborted) {
+        throw new LLMTimeoutError(`Gemini request timed out after ${timeoutMs}ms`);
+      }
+      if (err instanceof LLMError) {
+        throw err;
+      }
+      throw new LLMApiError(`Gemini network request failed: ${redactSecrets(err.message)}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+/**
+ * OpenAI Provider (Swappable alternative via native fetch)
+ * Communicates with api.openai.com/v1/chat/completions
+ */
+export class OpenAIProvider extends BaseLLMProvider {
+  constructor({
+    apiKey = process.env.OPENAI_API_KEY,
+    model = process.env.OPENAI_MODEL || 'gpt-4o-mini'
+  } = {}) {
+    super();
+    this.apiKey = apiKey;
+    this.model = model;
+    this.name = 'openai';
+  }
+
+  async generateContent({ prompt, timeoutMs = 15000, jsonMode = true }) {
+    if (!this.apiKey) {
+      throw new LLMApiError('OPENAI_API_KEY is not configured');
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const endpoint = 'https://api.openai.com/v1/chat/completions';
+    const requestBody = {
+      model: this.model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+      ...(jsonMode ? { response_format: { type: 'json_object' } } : {})
+    };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        let errMessage = `OpenAI API HTTP Error ${response.status}`;
+        try {
+          const errData = await response.json();
+          if (errData?.error?.message) {
+            errMessage = redactSecrets(errData.error.message);
+          }
+        } catch {
+          // ignore
+        }
+        throw new LLMApiError(errMessage, { statusCode: response.status });
+      }
+
+      const data = await response.json();
+      const content = data?.choices?.[0]?.message?.content;
+
+      if (!content || typeof content !== 'string') {
+        throw new LLMApiError('OpenAI API returned empty response content');
+      }
+
+      return content;
+    } catch (err) {
+      if (err.name === 'AbortError' || controller.signal.aborted) {
+        throw new LLMTimeoutError(`OpenAI request timed out after ${timeoutMs}ms`);
+      }
+      if (err instanceof LLMError) {
+        throw err;
+      }
+      throw new LLMApiError(`OpenAI network request failed: ${redactSecrets(err.message)}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+/**
+ * Factory to instantiate the desired LLM provider
+ * @param {'gemini'|'openai'} [type='gemini']
+ * @param {Object} [options={}]
+ * @returns {BaseLLMProvider}
+ */
+export function createLLMProvider(type = 'gemini', options = {}) {
+  if (type === 'openai') {
+    return new OpenAIProvider(options);
+  }
+  return new GeminiProvider(options);
+}
+
+// ---------------------------------------------------------------------------
+// 6. High-Level Service Orchestrator
+// ---------------------------------------------------------------------------
+
+/**
+ * End-to-end roadmap module generator using configured LLM.
+ *
+ * @param {Object} params
+ * @param {string} params.roleName - Name of the targeted career role
+ * @param {Record<string, number>} params.dimensionScores - Dimension assessment scores
+ * @param {string[]} params.allowedTags - Whitelisted tags from resource library
+ * @param {BaseLLMProvider} [params.provider] - Optional injected provider instance
+ * @param {number} [params.timeoutMs] - Optional override timeout in ms
+ * @returns {Promise<{ modules: Array<Object>, rawText: string }>}
+ */
+export async function generateRoadmapModules({
+  roleName,
+  dimensionScores,
+  allowedTags = [],
+  provider = null,
+  timeoutMs = null
+}) {
+  const activeProvider = provider || createLLMProvider('gemini');
+  const activeTimeout = timeoutMs || Number(process.env.LLM_TIMEOUT_MS) || 15000;
+
+  const prompt = buildPrompt({ roleName, dimensionScores, allowedTags });
+  const rawText = await activeProvider.generateContent({
+    prompt,
+    timeoutMs: activeTimeout,
+    jsonMode: true
   });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Gemini API returned status ${response.status}: ${errorBody}`);
-  }
+  const modules = cleanAndParseLLMResponse(rawText, allowedTags);
 
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) {
-    throw new Error('Empty response from Gemini API');
-  }
+  return {
+    modules,
+    rawText
+  };
+}
 
-  const parsed = JSON.parse(rawText);
-  if (!Array.isArray(parsed) || parsed.length === 0) {
-    throw new Error('Gemini response is not a non-empty array of modules');
-  }
-
-  return parsed.map((mod, idx) => ({
-    moduleId: mod.moduleId || `mod-${idx + 1}`,
-    title: mod.title || `Module ${idx + 1}`,
-    description: mod.description || '',
-    resourceTags: Array.isArray(mod.resourceTags) ? mod.resourceTags : [],
-    resources: Array.isArray(mod.resources) ? mod.resources : [],
-    estimatedHours: Number(mod.estimatedHours) || 10,
-    status: idx === 0 ? 'active' : 'locked',
-    checkpointScore: null,
-  }));
-};
-
-/**
- * Connects LLM generation with reliable local fallback.
- * A failure of the LLM will NEVER throw or return 500.
- *
- * @param {string} roleName
- * @param {Record<string, number>} dimensionScores
- * @returns {Promise<Array<object>>}
- */
-const generateWithFallback = async (roleName, dimensionScores) => {
-  try {
-    if (process.env.FORCE_LLM_FAILURE === 'true') {
-      throw new Error('LLM unavailable (FORCE_LLM_FAILURE flag set)');
-    }
-    if (env.GEMINI_API_KEY && env.GEMINI_API_KEY.trim() !== '') {
-      const llmModules = await module.exports.callGeminiApi(
-        roleName,
-        dimensionScores
-      );
-      if (Array.isArray(llmModules) && llmModules.length > 0) {
-        return llmModules.map((m, idx) => ({
-          ...m,
-          status: idx === 0 ? 'active' : 'locked',
-          checkpointScore: null,
-        }));
-      }
-    }
-  } catch (error) {
-    console.warn(
-      `[LLM Service Warning] AI generation failed (${error.message}). Falling back to curriculum roadmap.`
-    );
-  }
-
-  return generateFallbackRoadmap(roleName, dimensionScores);
-};
-
-module.exports = {
-  generateWithFallback,
-  generateFallbackRoadmap,
-  callGeminiApi,
+export default {
+  buildPrompt,
+  cleanAndParseLLMResponse,
+  createLLMProvider,
+  generateRoadmapModules,
+  GeminiProvider,
+  OpenAIProvider,
+  LLMError,
+  LLMTimeoutError,
+  LLMApiError,
+  LLMParseError
 };

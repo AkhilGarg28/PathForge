@@ -1,91 +1,138 @@
-import { useId, memo } from 'react';
-import './QuizQuestion.css';
+import React from 'react';
 
-/**
- * Accessible question card rendering an HTML <fieldset> and 4 radio options.
- * Fully supports arrow-key navigation and optional review result states.
- * Wrapped in React.memo to prevent unnecessary re-renders during assessment progression.
- */
-function QuizQuestion({
-  questionId,
+export const QuizQuestion = React.memo(function QuizQuestion({
+  question,
   questionNumber,
-  questionText,
-  subtitle,
-  options = [],
+  totalQuestions,
   selectedIndex = null,
   onSelectOption,
-  showResult = false,
-  correctIndex = null,
   disabled = false,
-  className = '',
+  className = ''
 }) {
-  const autoId = useId();
-  const name = `quiz-q-${questionId || autoId}`;
+  const letters = ['A', 'B', 'C', 'D'];
+
+  const handleKeyDown = (e, index) => {
+    if (disabled) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelectOption(index);
+    }
+  };
 
   return (
-    <fieldset className={`pf-quiz-question ${className}`.trim()}>
-      <legend className="pf-quiz-question__legend">
-        {questionNumber ? `Q${questionNumber}. ` : ''}
-        {questionText}
-        {subtitle && <span className="pf-quiz-question__subtitle">{subtitle}</span>}
-      </legend>
+    <div
+      className={className}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-2)'
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span
+          style={{
+            fontSize: '0.8125rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: 'var(--color-primary)'
+          }}
+        >
+          {question.dimension ? question.dimension.toUpperCase() : 'SKILL ASSESSMENT'}
+        </span>
+        {totalQuestions && (
+          <span
+            style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-muted)' }}
+          >
+            Question {questionNumber} of {totalQuestions}
+          </span>
+        )}
+      </div>
 
-      <div className="pf-quiz-question__options" role="radiogroup">
-        {options.map((option, index) => {
-          const isSelected = selectedIndex === index;
-          const optionId = `${name}-opt-${index}`;
+      {/* Question Text */}
+      <h2
+        style={{
+          fontSize: '1.125rem',
+          fontWeight: 700,
+          color: 'var(--color-neutral-900)',
+          lineHeight: 1.4
+        }}
+      >
+        {question.question}
+      </h2>
 
-          // Result review indicators
-          let reviewClass = '';
-          let badgeText = null;
-
-          if (showResult) {
-            if (correctIndex !== null && index === correctIndex) {
-              reviewClass = 'pf-quiz-option--result-correct';
-              badgeText = 'Correct Answer';
-            } else if (isSelected && correctIndex !== null && index !== correctIndex) {
-              reviewClass = 'pf-quiz-option--result-incorrect';
-              badgeText = 'Your Choice';
-            } else if (isSelected) {
-              reviewClass = 'pf-quiz-option--selected';
-              badgeText = 'Selected';
-            }
-          } else if (isSelected) {
-            reviewClass = 'pf-quiz-option--selected';
-          }
+      {/* 4 Choices */}
+      <div
+        role="radiogroup"
+        aria-label={question.question}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-1-5)',
+          marginTop: 'var(--space-1)'
+        }}
+      >
+        {question.options.map((opt, idx) => {
+          const isSelected = selectedIndex === idx;
 
           return (
-            <label
-              key={index}
-              htmlFor={optionId}
-              className={`pf-quiz-option ${reviewClass} ${disabled || showResult ? 'pf-quiz-option--disabled' : ''}`.trim()}
+            <div
+              key={idx}
+              role="radio"
+              aria-checked={isSelected}
+              tabIndex={disabled ? -1 : 0}
+              onClick={() => !disabled && onSelectOption(idx)}
+              onKeyDown={(e) => handleKeyDown(e, idx)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-1-5)',
+                padding: 'var(--space-1-5) var(--space-2)',
+                borderRadius: 'var(--radius-md)',
+                border: `2px solid ${isSelected ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                backgroundColor: isSelected ? 'var(--color-primary-50)' : 'var(--color-surface)',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s ease',
+                userSelect: 'none'
+              }}
             >
-              <input
-                id={optionId}
-                type="radio"
-                name={name}
-                value={index}
-                checked={isSelected}
-                disabled={disabled || showResult}
-                onChange={() => onSelectOption?.(index)}
-                className="pf-quiz-option__input"
-              />
+              {/* Option Letter Badge */}
+              <div
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.8125rem',
+                  fontWeight: 700,
+                  backgroundColor: isSelected ? 'var(--color-primary)' : 'var(--color-neutral-100)',
+                  color: isSelected ? 'var(--color-neutral-0)' : 'var(--color-neutral-700)',
+                  flexShrink: 0
+                }}
+              >
+                {letters[idx] || idx + 1}
+              </div>
 
-              <span className="pf-quiz-option__text">
-                {typeof option === 'string' ? option : option?.text || ''}
+              {/* Option Text */}
+              <span
+                style={{
+                  fontSize: '0.9375rem',
+                  fontWeight: isSelected ? 600 : 400,
+                  color: isSelected ? 'var(--color-primary-900)' : 'var(--color-neutral-800)',
+                  lineHeight: 1.4
+                }}
+              >
+                {opt}
               </span>
-
-              {badgeText && (
-                <span className="pf-quiz-option__badge" aria-hidden="true">
-                  {badgeText}
-                </span>
-              )}
-            </label>
+            </div>
           );
         })}
       </div>
-    </fieldset>
+    </div>
   );
-}
+});
 
-export default memo(QuizQuestion);
+export default QuizQuestion;

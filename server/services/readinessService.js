@@ -1,48 +1,57 @@
 /**
- * Readiness Calculation Service
+ * Calculates student readiness score combining diagnostic performance and module completion progress.
  *
- * Implements the contract formula for roadmap readiness:
- * Percentage of completed modules weighted by estimatedHours on a 0-100 scale.
+ * Contract Formula:
+ * Readiness = round(0.4 * (avgDimensionScore / 5 * 100) + 0.6 * (completedHours / totalHours * 100))
+ *
+ * @param {Object} params
+ * @param {Map|Object} params.dimensionScores - Dimension scores (0-5 per dimension)
+ * @param {Array} params.modules - Roadmap module objects with { estimatedHours, status }
+ * @returns {number} Integer between 0 and 100
  */
+export function calculateReadiness({ dimensionScores, modules }) {
+  // 1. Calculate average dimension score
+  let avgDimensionScore = 0;
+  if (dimensionScores) {
+    const scores =
+      dimensionScores instanceof Map
+        ? Array.from(dimensionScores.values())
+        : Object.values(dimensionScores);
 
-/**
- * Calculates readiness percentage (0-100) weighted by module estimatedHours.
- *
- * Formula:
- * readinessScore = round((sum of completed estimatedHours / sum of total estimatedHours) * 100)
- *
- * @param {Array<{estimatedHours?: number, status: string}>} modules
- * @returns {number} readinessScore (0-100)
- */
-const calculateReadiness = (modules) => {
-  if (!Array.isArray(modules) || modules.length === 0) {
-    return 0;
-  }
-
-  let totalHours = 0;
-  let completedHours = 0;
-
-  modules.forEach((mod) => {
-    const hours = Number(mod.estimatedHours) || 0;
-    totalHours += hours;
-    if (mod.status === 'complete') {
-      completedHours += hours;
+    if (scores.length > 0) {
+      const sum = scores.reduce(
+        (acc, val) => acc + (typeof val === 'number' && !Number.isNaN(val) ? val : 0),
+        0
+      );
+      avgDimensionScore = sum / scores.length;
     }
-  });
-
-  if (totalHours === 0) {
-    const totalCount = modules.length;
-    const completedCount = modules.filter((m) => m.status === 'complete').length;
-    return Math.round((completedCount / totalCount) * 100);
   }
 
-  const rawScore = (completedHours / totalHours) * 100;
-  const boundedScore = Math.min(100, Math.max(0, Math.round(rawScore)));
+  // 2. Calculate module completed hours vs total hours
+  let completedHours = 0;
+  let totalHours = 0;
 
-  return boundedScore;
-};
+  if (Array.isArray(modules)) {
+    for (const mod of modules) {
+      const hours =
+        typeof mod.estimatedHours === 'number' && mod.estimatedHours > 0 ? mod.estimatedHours : 0;
+      totalHours += hours;
+      if (mod.status === 'complete') {
+        completedHours += hours;
+      }
+    }
+  }
 
-module.exports = {
-  calculateReadiness,
-  calculateWeightedReadiness: calculateReadiness,
-};
+  // Diagnostic score weight (40%) scaled from 0-5 to 0-100%
+  const diagnosticScorePct = (avgDimensionScore / 5) * 100;
+
+  // Module completion weight (60%)
+  const completionPct = totalHours > 0 ? (completedHours / totalHours) * 100 : 0;
+
+  const rawReadiness = 0.4 * diagnosticScorePct + 0.6 * completionPct;
+  const rounded = Math.round(rawReadiness);
+
+  return Math.max(0, Math.min(100, rounded));
+}
+
+export default { calculateReadiness };

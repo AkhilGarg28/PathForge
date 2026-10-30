@@ -1,26 +1,18 @@
-/// <reference types="vitest" />
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    port: 5173,
+    host: true
+  },
   test: {
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.js',
-    include: ['src/**/*.test.{js,jsx}'],
-    css: false,
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      include: ['src/**/*.{js,jsx}'],
-      exclude: [
-        'src/main.jsx',
-        'src/mocks/**',
-        'src/test/**',
-        'src/**/*.test.{js,jsx}',
-      ],
-    },
-  },
-})
+    env: {
+      VITE_USE_MOCK: 'true'
+    }
+  }
+});

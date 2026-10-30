@@ -1,234 +1,251 @@
-const request = require('supertest');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const app = require('../app');
-const User = require('../models/User');
-const env = require('../config/env');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import mongoose from 'mongoose';
+import request from 'supertest';
+import app from '../app.js';
+import User from '../models/User.js';
+import { COOKIE_NAME } from '../utils/jwt.js';
 
-describe('Auth Endpoints (/api/auth)', () => {
-  const mockUsers = [];
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const tempDbPath = path.resolve(__dirname, '.tmp-mongo-auth');
 
-  beforeEach(() => {
-    mockUsers.length = 0;
+let mongoServer;
 
-    jest.spyOn(User, 'findOne').mockImplementation(({ email }) => {
-      const user = mockUsers.find((u) => u.email === email);
-      return Promise.resolve(user || null);
-    });
+beforeAll(async () => {
+  process.env.NODE_ENV = 'test';
+  process.env.JWT_SECRET = 'test_jwt_secret_for_auth_tests_12345';
 
-    jest.spyOn(User, 'create').mockImplementation((data) => {
-      const newUser = {
-        _id: '507f1f77bcf86cd799439011',
-        ...data,
-      };
-      mockUsers.push(newUser);
-      return Promise.resolve(newUser);
-    });
+  if (!fs.existsSync(tempDbPath)) {
+    fs.mkdirSync(tempDbPath, { recursive: true });
+  }
 
-    jest.spyOn(User, 'findById').mockImplementation((id) => {
-      const user = mockUsers.find((u) => u._id.toString() === id.toString());
-      return {
-        select: jest.fn().mockImplementation((fields) => {
-          if (!user) return Promise.resolve(null);
-          const copy = { ...user };
-          if (fields && fields.includes('-passwordHash')) {
-            delete copy.passwordHash;
-          }
-          return Promise.resolve(copy);
-        }),
-      };
-    });
+  mongoServer = await MongoMemoryServer.create({
+    binary: {
+      version: '4.4.29'
+    },
+    instance: {
+      dbPath: tempDbPath
+    }
   });
+  const uri = mongoServer.getUri();
+  await mongoose.connect(uri);
+}, 60000);
 
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
+afterAll(async () => {
+  await mongoose.disconnect();
+  if (mongoServer) {
+    await mongoServer.stop();
+  }
+  if (fs.existsSync(tempDbPath)) {
+    try {
+      fs.rmSync(tempDbPath, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+  }
+});
+
+beforeEach(async () => {
+  await User.deleteMany({});
+});
+
+describe('Authentication API Endpoints', () => {
+  const validSignupData = {
+    name: 'Sarah Connor',
+    email: 'sarah.connor@example.com',
+    password: 'Cyberdyne2026!'
+  };
 
   describe('POST /api/auth/signup', () => {
-    it('should successfully sign up a new user and set an httpOnly cookie', async () => {
-      const res = await request(app)
-        .post('/api/auth/signup')
-        .send({
-          name: 'Alice Developer',
-          email: 'alice@example.com',
-          password: 'Password123',
-          targetRole: 'Full Stack Engineer',
-        });
+    test('successfully registers a user, returns 201, sets httpOnly cookie, and omits passwordHash', async () => {
+      const res = await request(app).post('/api/auth/signup').send(validSignupData);
 
-      expect(res.statusCode).toBe(201);
-      expect(res.body).toHaveProperty('user');
-      expect(res.body.user).toMatchObject({
-        name: 'Alice Developer',
-        email: 'alice@example.com',
-        targetRole: 'Full Stack Engineer',
-      });
-      expect(res.body.user).toHaveProperty('id');
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Account created successfully');
+      expect(res.body.data.user.id).toBeDefined();
+      expect(res.body.data.user.name).toBe('Sarah Connor');
+      expect(res.body.data.user.email).toBe('sarah.connor@example.com');
+      expect(res.body.data.user.roleId).toBeNull();
+      expect(res.body.data.user.passwordHash).toBeUndefined();
 
+      // Check cookie header
       const cookies = res.headers['set-cookie'];
       expect(cookies).toBeDefined();
-      expect(cookies[0]).toMatch(/token=/);
-      expect(cookies[0]).toMatch(/HttpOnly/i);
+      const tokenCookie = cookies.find((c) => c.startsWith(`${COOKIE_NAME}=`));
+      expect(tokenCookie).toBeDefined();
+      expect(tokenCookie).toContain('HttpOnly');
     });
 
-    it('should reject duplicate email with 409', async () => {
-      const hashedPassword = await bcrypt.hash('Password123', 12);
-      mockUsers.push({
-        _id: '507f1f77bcf86cd799439011',
-        name: 'Alice Developer',
-        email: 'alice@example.com',
-        passwordHash: hashedPassword,
-        targetRole: 'Full Stack Engineer',
+    test('returns 409 Conflict when attempting to register with an existing email', async () => {
+      // First registration
+      await request(app).post('/api/auth/signup').send(validSignupData);
+
+      // Duplicate registration (with mixed case email to verify normalization)
+      const res = await request(app).post('/api/auth/signup').send({
+        name: 'Another User',
+        email: 'SARAH.CONNOR@EXAMPLE.COM',
+        password: 'Password123!'
       });
 
-      const res = await request(app)
-        .post('/api/auth/signup')
-        .send({
-          name: 'Another Alice',
-          email: 'alice@example.com',
-          password: 'Password123',
-        });
-
-      expect(res.statusCode).toBe(409);
-      expect(res.body.message).toMatch(/already exists/i);
+      expect(res.status).toBe(409);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('already exists');
     });
 
-    it('should reject weak password with 400', async () => {
-      // password under 8 characters
-      const shortRes = await request(app)
-        .post('/api/auth/signup')
-        .send({
-          name: 'Bob Developer',
-          email: 'bob@example.com',
-          password: 'pass1',
-        });
-      expect(shortRes.statusCode).toBe(400);
+    test('returns 400 Bad Request when password has fewer than 8 characters', async () => {
+      const res = await request(app).post('/api/auth/signup').send({
+        name: 'Short Pass',
+        email: 'short@example.com',
+        password: 'Pass1'
+      });
 
-      // password missing numbers
-      const noNumberRes = await request(app)
-        .post('/api/auth/signup')
-        .send({
-          name: 'Bob Developer',
-          email: 'bob@example.com',
-          password: 'onlyletters',
-        });
-      expect(noNumberRes.statusCode).toBe(400);
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe('Validation failed');
+      const passwordError = res.body.errors.find((e) => e.field === 'password');
+      expect(passwordError).toBeDefined();
+      expect(passwordError.message).toContain('at least 8 characters');
+    });
+
+    test('returns 400 Bad Request when password lacks numbers', async () => {
+      const res = await request(app).post('/api/auth/signup').send({
+        name: 'Letters Only',
+        email: 'letters@example.com',
+        password: 'PasswordOnly'
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      const passwordError = res.body.errors.find((e) => e.field === 'password');
+      expect(passwordError.message).toContain('at least one number');
+    });
+
+    test('returns 400 Bad Request when password lacks letters', async () => {
+      const res = await request(app).post('/api/auth/signup').send({
+        name: 'Numbers Only',
+        email: 'numbers@example.com',
+        password: '123456789'
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      const passwordError = res.body.errors.find((e) => e.field === 'password');
+      expect(passwordError.message).toContain('at least one letter');
     });
   });
 
   describe('POST /api/auth/login', () => {
     beforeEach(async () => {
-      const hashedPassword = await bcrypt.hash('Secret123', 12);
-      mockUsers.push({
-        _id: '507f1f77bcf86cd799439011',
-        name: 'Charlie Dev',
-        email: 'charlie@example.com',
-        passwordHash: hashedPassword,
-        targetRole: 'DevOps Specialist',
-      });
+      await request(app).post('/api/auth/signup').send(validSignupData);
     });
 
-    it('should login successfully with valid credentials and return cookie', async () => {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: 'charlie@example.com',
-          password: 'Secret123',
-        });
-
-      expect(res.statusCode).toBe(200);
-      expect(res.body.user).toMatchObject({
-        name: 'Charlie Dev',
-        email: 'charlie@example.com',
-        targetRole: 'DevOps Specialist',
+    test('successfully authenticates with correct credentials, sets cookie, and returns user', async () => {
+      const res = await request(app).post('/api/auth/login').send({
+        email: 'sarah.connor@example.com',
+        password: 'Cyberdyne2026!'
       });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Logged in successfully');
+      expect(res.body.data.user.email).toBe('sarah.connor@example.com');
+      expect(res.body.data.user.passwordHash).toBeUndefined();
 
       const cookies = res.headers['set-cookie'];
       expect(cookies).toBeDefined();
-      expect(cookies[0]).toMatch(/token=/);
-      expect(cookies[0]).toMatch(/HttpOnly/i);
+      expect(cookies.some((c) => c.startsWith(`${COOKIE_NAME}=`))).toBe(true);
     });
 
-    it('should return 401 with generic "Invalid credentials" message on wrong password', async () => {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: 'charlie@example.com',
-          password: 'WrongPassword99',
-        });
+    test('returns generic 401 when password is wrong', async () => {
+      const res = await request(app).post('/api/auth/login').send({
+        email: 'sarah.connor@example.com',
+        password: 'IncorrectPassword123'
+      });
 
-      expect(res.statusCode).toBe(401);
-      expect(res.body.message).toBe('Invalid credentials');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe('Invalid email or password');
     });
 
-    it('should return 401 with generic "Invalid credentials" message if email does not exist', async () => {
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: 'nonexistent@example.com',
-          password: 'Secret123',
-        });
+    test('returns same generic 401 when email is unknown to prevent enumeration', async () => {
+      const res = await request(app).post('/api/auth/login').send({
+        email: 'nonexistent.user@example.com',
+        password: 'Cyberdyne2026!'
+      });
 
-      expect(res.statusCode).toBe(401);
-      expect(res.body.message).toBe('Invalid credentials');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe('Invalid email or password');
     });
   });
 
   describe('GET /api/auth/me', () => {
-    const userId = '507f1f77bcf86cd799439011';
+    let authCookie;
 
     beforeEach(async () => {
-      const hashedPassword = await bcrypt.hash('Secret123', 12);
-      mockUsers.push({
-        _id: userId,
-        name: 'Dana Engineer',
-        email: 'dana@example.com',
-        passwordHash: hashedPassword,
-        targetRole: 'Frontend Architect',
-      });
+      const signupRes = await request(app).post('/api/auth/signup').send(validSignupData);
+      const cookies = signupRes.headers['set-cookie'];
+      authCookie = cookies.find((c) => c.startsWith(`${COOKIE_NAME}=`));
     });
 
-    it('should return 401 when called without cookie', async () => {
+    test('returns 200 with user profile when valid httpOnly cookie is provided', async () => {
+      const res = await request(app).get('/api/auth/me').set('Cookie', [authCookie]);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.user.email).toBe('sarah.connor@example.com');
+      expect(res.body.data.user.name).toBe('Sarah Connor');
+      expect(res.body.data.user.passwordHash).toBeUndefined();
+    });
+
+    test('returns 401 when cookie is missing', async () => {
       const res = await request(app).get('/api/auth/me');
-      expect(res.statusCode).toBe(401);
+
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('No token provided');
     });
 
-    it('should return 401 when called with tampered token', async () => {
-      const res = await request(app)
-        .get('/api/auth/me')
-        .set('Cookie', ['token=tampered.invalid.token']);
+    test('returns 401 when token is tampered with', async () => {
+      const tamperedCookie = `${COOKIE_NAME}=this.is.a.tampered.token; Path=/; HttpOnly`;
+      const res = await request(app).get('/api/auth/me').set('Cookie', [tamperedCookie]);
 
-      expect(res.statusCode).toBe(401);
-      expect(res.body.message).toMatch(/invalid or expired token/i);
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('Invalid authentication token');
     });
 
-    it('should return user profile when authenticated with valid cookie', async () => {
-      const validToken = jwt.sign({ id: userId }, env.JWT_SECRET, {
-        expiresIn: '7d',
-      });
+    test('returns 401 if user account was deleted from database', async () => {
+      await User.deleteMany({}); // Delete user from DB
 
-      const res = await request(app)
-        .get('/api/auth/me')
-        .set('Cookie', [`token=${validToken}`]);
+      const res = await request(app).get('/api/auth/me').set('Cookie', [authCookie]);
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body.user).toMatchObject({
-        name: 'Dana Engineer',
-        email: 'dana@example.com',
-        targetRole: 'Frontend Architect',
-      });
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('no longer exists');
     });
   });
 
   describe('POST /api/auth/logout', () => {
-    it('should clear the token cookie and return success message', async () => {
+    test('clears the authentication cookie and returns 200', async () => {
       const res = await request(app).post('/api/auth/logout');
-      expect(res.statusCode).toBe(200);
-      expect(res.body.message).toMatch(/logged out successfully/i);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Logged out successfully');
 
       const cookies = res.headers['set-cookie'];
       expect(cookies).toBeDefined();
-      // Clearing cookie sets it with empty value or expires in the past
-      expect(cookies[0]).toMatch(/token=;/);
+      const clearedCookie = cookies.find((c) => c.startsWith(`${COOKIE_NAME}=`));
+      expect(clearedCookie).toBeDefined();
+      // Verify cookie expiration
+      expect(
+        clearedCookie.includes('Expires=Thu, 01 Jan 1970') || clearedCookie.includes('Max-Age=0')
+      ).toBe(true);
     });
   });
 });

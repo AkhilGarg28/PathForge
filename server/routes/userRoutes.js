@@ -1,27 +1,34 @@
-const express = require('express');
-const authMiddleware = require('../middleware/authMiddleware');
-const {
-  setUserRole,
-  updateProfile,
-  updatePassword,
-  deleteAccount,
-} = require('../controllers/userController');
+import { Router } from 'express';
+import {
+  updateUserRole,
+  updateUserProfile,
+  updateUserPassword,
+  deleteUserAccount
+} from '../controllers/userController.js';
+import {
+  updateProfileSchema,
+  updatePasswordSchema,
+  deleteUserSchema
+} from '../validators/userValidators.js';
+import { validate } from '../validators/authValidators.js';
+import authMiddleware from '../middleware/auth.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
-const router = express.Router();
+const router = Router();
 
-// All user routes are protected
-router.use(authMiddleware);
+router.post('/role', authMiddleware, asyncHandler(updateUserRole));
+router.patch(
+  '/profile',
+  authMiddleware,
+  validate(updateProfileSchema),
+  asyncHandler(updateUserProfile)
+);
+router.patch(
+  '/password',
+  authMiddleware,
+  validate(updatePasswordSchema),
+  asyncHandler(updateUserPassword)
+);
+router.delete('/', authMiddleware, validate(deleteUserSchema), asyncHandler(deleteUserAccount));
 
-// POST /api/user/role - select/switch target role
-router.post('/role', setUserRole);
-
-// PATCH /api/user/profile - update display name
-router.patch('/profile', updateProfile);
-
-// PATCH /api/user/password - change password
-router.patch('/password', updatePassword);
-
-// DELETE /api/user - delete account and associated data
-router.delete('/', deleteAccount);
-
-module.exports = router;
+export default router;

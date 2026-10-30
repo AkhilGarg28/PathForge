@@ -1,96 +1,100 @@
-import { useState, useId, forwardRef } from 'react';
-import './Input.css';
+import React, { useId } from 'react';
 
-/**
- * Accessible form input supporting label, hint text, validation error text,
- * automated aria-describedby associations, ref forwarding, and password show/hide toggle.
- */
-const Input = forwardRef(function Input(
-  {
-    label,
-    hint,
-    error,
-    type = 'text',
-    id,
-    required = false,
-    disabled = false,
-    className = '',
-    ...props
-  },
-  ref,
-) {
-  const autoId = useId();
-  const inputId = id || `pf-input-${autoId}`;
-  const hintId = hint ? `${inputId}-hint` : undefined;
-  const errorId = error ? `${inputId}-error` : undefined;
-
-  const [showPassword, setShowPassword] = useState(false);
-  const isPassword = type === 'password';
-  const effectiveType = isPassword ? (showPassword ? 'text' : 'password') : type;
-
-  const describedBy = [props['aria-describedby'], hintId, errorId]
-    .filter(Boolean)
-    .join(' ');
+export function Input({
+  label,
+  id,
+  type = 'text',
+  error,
+  helperText,
+  disabled = false,
+  required = false,
+  fullWidth = true,
+  className = '',
+  style = {},
+  inputStyle = {},
+  ...props
+}) {
+  const generatedId = useId();
+  const inputId = id || generatedId;
 
   return (
-    <div className={`pf-input-group ${className}`.trim()}>
+    <div
+      className={className}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-0-5)',
+        width: fullWidth ? '100%' : 'auto',
+        marginBottom: 'var(--space-1-5)',
+        ...style
+      }}
+    >
       {label && (
-        <label htmlFor={inputId} className="pf-input-group__label">
-          <span>{label}</span>
-          {required && (
-            <span className="pf-input-group__required" aria-hidden="true">
-              *
-            </span>
-          )}
+        <label
+          htmlFor={inputId}
+          style={{
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            color: error ? 'var(--color-error)' : 'var(--color-neutral-800)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-0-5)'
+          }}
+        >
+          {label}
+          {required && <span style={{ color: 'var(--color-error)' }}>*</span>}
         </label>
       )}
 
-      <div
-        className={`pf-input-group__control ${isPassword ? 'pf-input-group__control--has-toggle' : ''}`.trim()}
-      >
-        <input
-          ref={ref}
-          id={inputId}
-          type={effectiveType}
-          required={required}
-          disabled={disabled}
-          aria-invalid={Boolean(error)}
-          aria-describedby={describedBy || undefined}
-          className={`pf-input-group__field ${error ? 'pf-input-group__field--error' : ''}`.trim()}
-          {...props}
-        />
+      <input
+        id={inputId}
+        type={type}
+        disabled={disabled}
+        required={required}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined}
+        style={{
+          width: '100%',
+          padding: 'var(--space-1) var(--space-1-5)',
+          fontSize: '0.875rem',
+          color: 'var(--color-text)',
+          backgroundColor: disabled ? 'var(--color-neutral-100)' : 'var(--color-surface)',
+          border: `1px solid ${error ? 'var(--color-error)' : 'var(--color-border)'}`,
+          borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--shadow-sm)',
+          transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+          cursor: disabled ? 'not-allowed' : 'text',
+          boxSizing: 'border-box',
+          ...inputStyle
+        }}
+        {...props}
+      />
 
-        {isPassword && (
-          <button
-            type="button"
-            className="pf-input-group__toggle-btn"
-            onClick={() => setShowPassword((prev) => !prev)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-            title={showPassword ? 'Hide password' : 'Show password'}
-            tabIndex={0}
-          >
-            {showPassword ? (
-              <span aria-hidden="true">👁️</span>
-            ) : (
-              <span aria-hidden="true">🙈</span>
-            )}
-          </button>
-        )}
-      </div>
-
-      {hint && !error && (
-        <p id={hintId} className="pf-input-group__hint">
-          {hint}
-        </p>
-      )}
-
-      {error && (
-        <p id={errorId} role="alert" className="pf-input-group__error">
+      {error ? (
+        <span
+          id={`${inputId}-error`}
+          role="alert"
+          style={{
+            fontSize: '0.75rem',
+            color: 'var(--color-error)',
+            fontWeight: 500
+          }}
+        >
           {error}
-        </p>
-      )}
+        </span>
+      ) : helperText ? (
+        <span
+          id={`${inputId}-helper`}
+          style={{
+            fontSize: '0.75rem',
+            color: 'var(--color-text-muted)'
+          }}
+        >
+          {helperText}
+        </span>
+      ) : null}
     </div>
   );
-});
+}
 
 export default Input;
