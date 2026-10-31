@@ -4,7 +4,8 @@
  * tests theoretical & practical ability, verifies resume claims, and highlights gaps.
  */
 
-import { GeminiProvider } from './llmService.js';
+import { getActiveAIProvider, GeminiProvider } from './llmService.js';
+import { selectQuizQuestions } from './questionSelector.js';
 
 // Comprehensive question repository for deterministic fallback across core engineering skills
 const CURATED_READINESS_QUESTIONS = [
@@ -171,35 +172,38 @@ const CURATED_READINESS_QUESTIONS = [
  * Generates personalized readiness test questions based on student profile, resume claims, and GitHub
  */
 export async function generateReadinessQuestions({ targetRole, resumeSkills = [], githubLanguages = [] }) {
-  // If Gemini API is available, generate dynamically tailored questions
+  const isDataAnalyst = String(targetRole || '').toLowerCase().includes('data') || String(targetRole || '').toLowerCase().includes('analyst');
+  const track = isDataAnalyst ? 'data-analyst' : 'mern';
+  const roleDefaultSkills = isDataAnalyst
+    ? ['SQL', 'Python', 'Excel', 'Pandas', 'Statistics', 'Power BI']
+    : ['JavaScript', 'React', 'Node.js', 'Express.js', 'MongoDB', 'REST APIs'];
+
+  // If AI API is available, generate dynamically tailored questions
   try {
-    if (process.env.GEMINI_API_KEY) {
-      const provider = new GeminiProvider();
+    const provider = getActiveAIProvider();
+    if (provider) {
       const skillsToTest = [
         ...new Set([
           ...resumeSkills.map((s) => s.skill || s),
           ...githubLanguages,
-          'JavaScript',
-          'React',
-          'Node.js',
-          'Data Structures & Algorithms'
+          ...roleDefaultSkills
         ])
       ].slice(0, 5);
 
       const prompt = `You are a chief technical examiner at a top tech company.
-Generate a personalized, rigorous 9-question technical readiness assessment for a candidate targeting "${targetRole}".
+Generate a personalized, rigorous 9-question technical readiness assessment for a candidate targeting "${targetRole || (isDataAnalyst ? 'Data Analyst' : 'MERN Developer')}".
 Test these skills across Beginner, Intermediate, and Advanced levels: ${skillsToTest.join(', ')}.
 
 Include:
 - 3 Beginner questions (definitions, basic syntax, output prediction)
-- 3 Intermediate questions (practical scenarios, asynchronous logic, debugging)
-- 3 Advanced questions (real-world problem solving, architecture, performance, edge cases)
+- 3 Intermediate questions (practical scenarios, asynchronous/query logic, debugging)
+- 3 Advanced questions (real-world problem solving, architecture/analytics, performance, edge cases)
 
 Return ONLY a valid JSON array of 9 question objects matching this exact schema:
 [
   {
     "id": "q-1",
-    "skill": "JavaScript" | "React" | "Node.js" | etc.,
+    "skill": "${isDataAnalyst ? 'SQL' : 'JavaScript'}" | "${isDataAnalyst ? 'Python' : 'React'}" | "${isDataAnalyst ? 'Excel' : 'Node.js'}" | etc.,
     "level": "Beginner" | "Intermediate" | "Advanced",
     "type": "mcq" | "output_prediction" | "find_error" | "code_problem" | "debugging" | "practical_scenario",
     "question": "string (the question prompt)",
@@ -207,7 +211,7 @@ Return ONLY a valid JSON array of 9 question objects matching this exact schema:
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correctIndex": 0 | 1 | 2 | 3,
     "explanation": "string (clear technical explanation of why correct option is right)",
-    "topic": "string (e.g. Asynchronous JS, State Management, Indexing)"
+    "topic": "string (e.g. Asynchronous JS, SQL Joins, Indexing, Data Normalization)"
   }
 ]`;
 
@@ -221,11 +225,16 @@ Return ONLY a valid JSON array of 9 question objects matching this exact schema:
       }
     }
   } catch (err) {
-    console.warn(`[AssessmentService] Dynamic question generation failed (${err.message}). Using curated question bank.`);
+    console.warn(`[AssessmentService] Dynamic question generation failed (${err.message}). Using curated question bank for track: ${track}`);
   }
 
-  // Return curated fallback questions
-  return CURATED_READINESS_QUESTIONS;
+  // Return track-specific randomized and shuffled questions from the comprehensive mock bank
+  const selected = selectQuizQuestions({
+    track,
+    difficulty: 'Adaptive',
+    count: 9
+  });
+  return selected.questions;
 }
 
 /**

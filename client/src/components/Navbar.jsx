@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../services/api.js';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { Button } from './Button.jsx';
@@ -6,6 +7,28 @@ import { Button } from './Button.jsx';
 export function Navbar({ className = '' }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const [systemStatus, setSystemStatus] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchStatus = async () => {
+      try {
+        const res = await api.getSystemStatus();
+        if (mounted && res?.data) {
+          setSystemStatus(res.data);
+        }
+      } catch (err) {
+        // Silently keep default
+      }
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 30000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -77,7 +100,7 @@ export function Navbar({ className = '' }) {
                   padding: 'var(--space-0-5) var(--space-1)'
                 }}
               >
-                12-Week Roadmap
+                Roadmap
               </Link>
 
               <Link
@@ -115,6 +138,34 @@ export function Navbar({ className = '' }) {
               >
                 Settings
               </Link>
+
+              
+              {/* System AI / Mock Mode Indicator */}
+              {systemStatus && (
+                <Link
+                  to="/settings"
+                  title={`Engine: ${systemStatus.activeModel || systemStatus.label}. Click to adjust settings.`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '3px 10px',
+                    borderRadius: '9999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    border: '1px solid',
+                    ...(systemStatus.mode === 'ai_mode'
+                      ? { backgroundColor: '#dcfce7', color: '#15803d', borderColor: '#86efac' }
+                      : systemStatus.mode === 'fallback_mode'
+                      ? { backgroundColor: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }
+                      : { backgroundColor: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' })
+                  }}
+                >
+                  <span>{systemStatus.mode === 'ai_mode' ? '⚡' : systemStatus.mode === 'fallback_mode' ? '🛡️' : '🧪'}</span>
+                  <span>{systemStatus.label || 'AI Mode'}</span>
+                </Link>
+              )}
 
               {/* User Pill */}
               <div

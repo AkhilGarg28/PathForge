@@ -4,7 +4,7 @@
  * current week progress, identified weak topics, and previous assessment mistakes.
  */
 
-import { GeminiProvider } from './llmService.js';
+import { getActiveAIProvider, GeminiProvider } from './llmService.js';
 
 /**
  * Generates an intelligent, context-aware AI tutor response
@@ -33,8 +33,8 @@ MENTOR GUIDELINES:
 4. Keep tone professional, encouraging, and pedagogically sound.`;
 
   try {
-    if (process.env.GEMINI_API_KEY) {
-      const provider = new GeminiProvider();
+    const provider = getActiveAIProvider();
+    if (provider) {
       const historyFormatted = chatHistory
         .slice(-6)
         .map((m) => `${m.role === 'user' ? 'Student' : 'Mentor'}: ${m.content}`)
@@ -53,7 +53,7 @@ MENTOR GUIDELINES:
       }
     }
   } catch (err) {
-    console.warn(`[AITutorService] Gemini tutor call failed (${err.message}). Using contextual fallback response.`);
+    console.warn(`[AITutorService] AI tutor call failed (${err.message}). Using contextual fallback response.`);
   }
 
   // Contextual fallback response
@@ -80,8 +80,8 @@ MENTOR GUIDELINES:
  */
 export async function generateTopicDeepDive({ topicTitle, skill, targetRole = 'MERN Developer' }) {
   try {
-    if (process.env.GEMINI_API_KEY) {
-      const provider = new GeminiProvider();
+    const provider = getActiveAIProvider();
+    if (provider) {
       const prompt = `You are an expert technical curriculum designer.
 Generate an in-depth, structured learning guide for the topic: "${topicTitle}" in the context of "${skill}" for a "${targetRole}".
 

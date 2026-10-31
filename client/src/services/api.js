@@ -330,6 +330,30 @@ export const api = {
     return request('/onboarding/profile', { method: 'GET' });
   },
 
+  async uploadResumeFile({ fileName, fileType, fileData, resumeText, targetRole }) {
+    if (USE_MOCK) {
+      await mockDelay(300);
+      return {
+        success: true,
+        message: 'Resume uploaded successfully (mock mode)',
+        data: {
+          fileName: fileName || 'resume.pdf',
+          savedLocallyPath: 'server/uploads/resumes/mock_resume.pdf',
+          skills: [
+            { skill: 'JavaScript', claimedLevel: 'Advanced', confidenceScore: 90 },
+            { skill: 'React', claimedLevel: 'Intermediate', confidenceScore: 85 },
+            { skill: 'Node.js', claimedLevel: 'Intermediate', confidenceScore: 80 }
+          ],
+          summary: 'Demonstrated proficiency in front-end and full-stack development.'
+        }
+      };
+    }
+    return request('/onboarding/upload-resume-file', {
+      method: 'POST',
+      body: JSON.stringify({ fileName, fileType, fileData, resumeText, targetRole })
+    });
+  },
+
   async analyzeResume({ resumeText }) {
     if (USE_MOCK) {
       await mockDelay(400);
@@ -486,10 +510,10 @@ export const api = {
       await mockDelay(600);
       return {
         success: true,
-        message: 'Personalized 12-week roadmap generated successfully',
+        message: 'Personalized roadmap generated successfully',
         data: {
           roadmap: {
-            title: '12-Week Master Software Engineer Roadmap',
+            title: 'Master Roadmap',
             targetRole: 'MERN Developer',
             version: 1,
             totalWeeks: 12,
@@ -526,7 +550,7 @@ export const api = {
         success: true,
         data: {
           roadmap: {
-            title: '12-Week Master Software Engineer Roadmap',
+            title: 'Master Roadmap',
             targetRole: 'MERN Developer',
             version: 1,
             totalWeeks: 12,
@@ -733,7 +757,124 @@ export const api = {
       };
     }
     return request('/analytics/overview', { method: 'GET' });
+  },
+
+  // System & Mock Mode Management
+  async getSystemStatus() {
+    if (USE_MOCK) {
+      await mockDelay(100);
+      return {
+        success: true,
+        data: {
+          mode: 'mock_mode',
+          label: 'Mock Mode',
+          aiProvider: 'mock',
+          activeModel: 'Local Question Database (120 Questions)',
+          isOnline: true,
+          questionsAvailable: { mern: 60, dataAnalyst: 60, total: 120 }
+        }
+      };
+    }
+    return request('/system/mode', { method: 'GET' });
+  },
+
+  async updateSystemSettings(settings) {
+    if (USE_MOCK) {
+      await mockDelay(100);
+      return { success: true, data: { settings } };
+    }
+    return request('/system/settings', {
+      method: 'POST',
+      body: JSON.stringify(settings)
+    });
+  },
+
+  async probeAi() {
+    if (USE_MOCK) {
+      await mockDelay(200);
+      return {
+        success: true,
+        data: {
+          provider: 'mock',
+          model: 'Mock AI Engine',
+          latencyMs: 12,
+          healthy: true,
+          message: 'Mock AI engine is fully operational'
+        }
+      };
+    }
+    return request('/system/test-ai', { method: 'POST' });
+  },
+
+  async probeDb() {
+    if (USE_MOCK) {
+      await mockDelay(150);
+      return {
+        success: true,
+        data: {
+          connected: true,
+          status: 'connected',
+          host: 'in-memory-mock',
+          dbName: 'pathforge-mock',
+          pingMs: 5
+        }
+      };
+    }
+    return request('/system/test-db', { method: 'POST' });
+  },
+
+  async getMockAssessment({ track = 'mern-developer', difficulty = 'intermediate', count = 10 } = {}) {
+    if (USE_MOCK) {
+      await mockDelay(200);
+      return {
+        success: true,
+        data: {
+          track,
+          difficulty,
+          count,
+          questions: [
+            {
+              id: 'mock_1',
+              track,
+              topic: 'Core',
+              difficulty,
+              question: 'Sample Question for ' + track,
+              options: ['Option A', 'Option B', 'Option C', 'Option D'],
+              correctIndex: 0,
+              explanation: 'Sample explanation'
+            }
+          ]
+        }
+      };
+    }
+    const params = new URLSearchParams({ track, difficulty, count: String(count) });
+    return request(`/system/mock-assessment?${params.toString()}`, { method: 'GET' });
+  },
+
+  async getSystemRecommendations(role = 'mern-developer') {
+    if (USE_MOCK) {
+      await mockDelay(150);
+      return {
+        success: true,
+        data: {
+          role,
+          resumeCritique: [],
+          interviewQuestions: []
+        }
+      };
+    }
+    const params = new URLSearchParams({ role });
+    return request(`/system/recommendations?${params.toString()}`, { method: 'GET' });
+  },
+
+  async resetQuizProgress() {
+    if (USE_MOCK) {
+      await mockDelay(100);
+      return { success: true, message: 'Quiz history reset successfully' };
+    }
+    return request('/system/reset-quiz-history', { method: 'POST' });
   }
+
 };
 
 export default api;

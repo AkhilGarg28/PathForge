@@ -5,11 +5,34 @@
  */
 
 import { GeminiProvider } from './llmService.js';
+import { dataAnalystLearningPath } from '../mockData/learningPaths.js';
 
 /**
  * Standard 12-Week Curriculum Template for Deterministic Fallback
  */
 export function buildDeterministicRoadmap({ targetRole = 'MERN Developer', verifiedSkills = [], claimVerifications = [] }) {
+  const isDataAnalyst = String(targetRole || '').toLowerCase().includes('data') || String(targetRole || '').toLowerCase().includes('analyst');
+  if (isDataAnalyst) {
+    return {
+      targetRole: 'Data Analyst',
+      version: 1,
+      totalWeeks: 12,
+      currentWeek: 1,
+      readinessScore: 30,
+      phases: dataAnalystLearningPath.phases,
+      weeks: JSON.parse(JSON.stringify(dataAnalystLearningPath.weeks)),
+      changeHistory: [
+        {
+          date: new Date(),
+          version: 1,
+          triggerWeek: 1,
+          action: 'INITIAL_GENERATION',
+          reason: 'Personalized Data Analyst roadmap forged from readiness assessment and skill verification.',
+          score: null
+        }
+      ]
+    };
+  }
   // Check if JavaScript or React had claim discrepancies requiring foundational remediation
   const jsVerification = claimVerifications.find((c) => c.skill.toLowerCase().includes('javascript'));
   const needsJsRemediation = jsVerification?.isDiscrepancy || jsVerification?.demonstratedLevel === 'Needs Remediation';

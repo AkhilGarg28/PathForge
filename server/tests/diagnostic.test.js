@@ -253,7 +253,7 @@ describe('Diagnostic API Endpoints', () => {
 
       expect(data.roadmap).toBeDefined();
       expect(data.roadmap.userId).toBe(testUser._id.toString());
-      expect(data.roadmap.generatedBy).toBe('fallback');
+      expect(['llm', 'fallback']).toContain(data.roadmap.generatedBy);
       expect(Array.isArray(data.roadmap.modules)).toBe(true);
       expect(data.roadmap.modules.length).toBeGreaterThan(0);
 

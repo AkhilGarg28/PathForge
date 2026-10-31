@@ -14,35 +14,54 @@ process.env.JWT_SECRET =
 process.env.DISABLE_RATE_LIMIT = 'true';
 
 async function start() {
-  const { MongoMemoryServer } = await import('mongodb-memory-server');
   const mongoose = (await import('mongoose')).default;
   const app = (await import('../app.js')).default;
   const { seedDatabase } = await import('./seed.js');
 
-  console.log('[DevServer] Starting in-memory MongoDB instance...');
-  const mongoServer = await MongoMemoryServer.create({
-    binary: {
-      version: '4.4.29'
-    }
-  });
-  const uri = mongoServer.getUri();
-  console.log(`[DevServer] In-memory MongoDB running at ${uri}`);
+  let uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/pathforge';
+  let mongoServer = null;
 
-  await mongoose.connect(uri);
-  console.log('[DevServer] Connected to MongoDB. Seeding initial data...');
-  await seedDatabase();
-  console.log('[DevServer] Database seed completed successfully.');
+  // Try configured MongoDB (Local 127.0.0.1:27017 for Compass or Atlas)
+  try {
+    console.log(`[DevServer] Connecting to MongoDB: ${uri.replace(/:([^:@]+)@/, ':****@')}`);
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+    console.log(`[DevServer] Connected to MongoDB at ${mongoose.connection.host}! Database: ${mongoose.connection.name}`);
+  } catch (err) {
+    console.warn(`[DevServer] Could not connect to ${uri} (${err.message}). Starting in-memory database...`);
+  }
+
+  // Graceful fallback if local MongoDB service was paused
+  if (mongoose.connection.readyState !== 1) {
+    console.log('[DevServer] Starting in-memory MongoDB fallback...');
+    const { MongoMemoryServer } = await import('mongodb-memory-server');
+    mongoServer = await MongoMemoryServer.create();
+    uri = mongoServer.getUri();
+    await mongoose.connect(uri);
+    console.log(`[DevServer] In-memory MongoDB running at ${uri}`);
+  }
+
+  console.log('[DevServer] Seeding initial roles, questions and checkpoints...');
+  try {
+    await seedDatabase();
+    console.log('[DevServer] Database seed completed successfully.');
+  } catch (err) {
+    console.warn('[DevServer] Seeding notice:', err.message);
+  }
 
   const PORT = process.env.PORT || 5000;
   const server = app.listen(PORT, () => {
-    console.log(`[DevServer] PathForge API server listening on http://localhost:${PORT}`);
+    console.log(`\n======================================================`);
+    console.log(`🚀 PathForge Backend Server: http://localhost:${PORT}`);
+    console.log(`🌐 PathForge Frontend Client: http://localhost:5173`);
+    console.log(`🗄️  MongoDB Compass URI:     mongodb://localhost:27017`);
+    console.log(`======================================================\n`);
   });
 
   const cleanup = async () => {
     console.log('\n[DevServer] Shutting down...');
     server.close();
     await mongoose.disconnect();
-    await mongoServer.stop();
+    if (mongoServer) await mongoServer.stop();
     process.exit(0);
   };
 

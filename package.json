@@ -8,6 +8,7 @@
     "client"
   ],
   "scripts": {
+    "start": "node server/scripts/startDevServer.js",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
     "lint": "npm run lint --prefix server",

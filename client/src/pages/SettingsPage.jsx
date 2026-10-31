@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout.jsx';
 import { Card } from '../components/Card.jsx';
@@ -32,6 +32,115 @@ export function SettingsPage() {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+
+  // --- System & Mock Mode Settings State ---
+  const [systemStatus, setSystemStatus] = useState(null);
+  const [systemMode, setSystemMode] = useState('auto');
+  const [modeSaving, setModeSaving] = useState(false);
+  const [aiProbeLoading, setAiProbeLoading] = useState(false);
+  const [aiProbeResult, setAiProbeResult] = useState(null);
+  const [dbProbeLoading, setDbProbeLoading] = useState(false);
+  const [dbProbeResult, setDbProbeResult] = useState(null);
+  const [resetHistoryLoading, setResetHistoryLoading] = useState(false);
+  const [mockTrack, setMockTrack] = useState('mern-developer');
+  const [mockDifficulty, setMockDifficulty] = useState('intermediate');
+  const [mockCount, setMockCount] = useState(5);
+  const [generatedMockQuiz, setGeneratedMockQuiz] = useState(null);
+  const [generatingMock, setGeneratingMock] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    api.getSystemStatus().then((res) => {
+      if (mounted && res?.data) {
+        setSystemStatus(res.data);
+        if (res.data.settings?.mode) {
+          setSystemMode(res.data.settings.mode);
+        }
+      }
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  const handleModeChange = async (newMode) => {
+    setSystemMode(newMode);
+    setModeSaving(true);
+    try {
+      const res = await api.updateSystemSettings({ mode: newMode });
+      if (res?.data?.settings) {
+        toast.success(`AI mode updated to: ${newMode.replace('_', ' ').toUpperCase()}`);
+      }
+      const refreshed = await api.getSystemStatus();
+      if (refreshed?.data) setSystemStatus(refreshed.data);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update system mode');
+    } finally {
+      setModeSaving(false);
+    }
+  };
+
+  const handleProbeAi = async () => {
+    setAiProbeLoading(true);
+    setAiProbeResult(null);
+    try {
+      const res = await api.probeAi();
+      setAiProbeResult(res.data);
+      toast.success('AI Health check completed');
+    } catch (err) {
+      setAiProbeResult({ healthy: false, message: err.message });
+      toast.error('AI Health check failed');
+    } finally {
+      setAiProbeLoading(false);
+    }
+  };
+
+  const handleProbeDb = async () => {
+    setDbProbeLoading(true);
+    setDbProbeResult(null);
+    try {
+      const res = await api.probeDb();
+      setDbProbeResult(res.data);
+      toast.success('Database latency test completed');
+    } catch (err) {
+      setDbProbeResult({ connected: false, message: err.message });
+      toast.error('Database connection test failed');
+    } finally {
+      setDbProbeLoading(false);
+    }
+  };
+
+  const handleResetHistory = async () => {
+    if (!window.confirm('Are you sure you want to reset your quiz history and question repetition tracking?')) {
+      return;
+    }
+    setResetHistoryLoading(true);
+    try {
+      await api.resetQuizProgress();
+      toast.success('Quiz repetition history cleared successfully');
+    } catch (err) {
+      toast.error(err.message || 'Failed to reset quiz history');
+    } finally {
+      setResetHistoryLoading(false);
+    }
+  };
+
+  const handleGenerateMockAssessment = async () => {
+    setGeneratingMock(true);
+    try {
+      const res = await api.getMockAssessment({
+        track: mockTrack,
+        difficulty: mockDifficulty,
+        count: mockCount
+      });
+      if (res?.data?.questions) {
+        setGeneratedMockQuiz(res.data);
+        toast.success(`Generated ${res.data.questions.length} questions from ${mockTrack === 'mern-developer' ? 'MERN' : 'Data Analyst'} bank`);
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to generate mock assessment');
+    } finally {
+      setGeneratingMock(false);
+    }
+  };
 
   // 1. Update Profile Name
   const handleUpdateProfile = async (e) => {

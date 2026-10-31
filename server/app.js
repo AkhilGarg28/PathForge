@@ -20,6 +20,7 @@ import personalizedRoadmapRoutes from './routes/personalizedRoadmapRoutes.js';
 import weeklyQuizRoutes from './routes/weeklyQuizRoutes.js';
 import aiTutorRoutes from './routes/aiTutorRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import systemRoutes from './routes/systemRoutes.js';
 
 const app = express();
 
@@ -45,9 +46,9 @@ app.use(
   })
 );
 
-// Body parsing with strict payload size limit
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+// Body parsing with generous payload size limit for resume uploads & documents
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // NoSQL Injection sanitization middleware (blocks keys with '$' or '.')
 app.use(mongoSanitize);
@@ -93,6 +94,7 @@ app.use('/api/personalized-roadmap', personalizedRoadmapRoutes);
 app.use('/api/weekly-quiz', weeklyQuizRoutes);
 app.use('/api/ai-tutor', aiTutorRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/system', systemRoutes);
 
 // 404 Route Catch-all
 app.use(notFound);

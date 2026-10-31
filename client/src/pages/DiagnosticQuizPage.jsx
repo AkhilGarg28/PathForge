@@ -70,7 +70,8 @@ export function DiagnosticQuizPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getDiagnostic(user.roleId);
+      const targetRoleId = user?.roleId || 'current';
+      const res = await api.getDiagnostic(targetRoleId);
       const data = res?.data || {};
       const fetchedQuestions = data.questions || [];
       setQuestions(fetchedQuestions);

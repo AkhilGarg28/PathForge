@@ -1,6 +1,6 @@
 /**
  * PathForge LLM Integration Service
- * Provides swappable LLM provider abstractions (Gemini default, OpenAI swappable),
+ * Provides swappable LLM provider abstractions (Groq, Gemini, OpenAI swappable),
  * prompt synthesis, JSON-mode generation, defensive response sanitization, and typed error handling.
  */
 
@@ -229,7 +229,7 @@ export function cleanAndParseLLMResponse(rawText, allowedTags = []) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Provider Implementations (Gemini & OpenAI)
+// 5. Provider Implementations (Groq, Gemini, OpenAI)
 // ---------------------------------------------------------------------------
 
 /**
@@ -246,6 +246,83 @@ export class BaseLLMProvider {
    */
   async generateContent(_options) {
     throw new Error('generateContent must be implemented by provider');
+  }
+}
+
+/**
+ * Groq Provider (Ultra-fast inference via OpenAI-compatible endpoint)
+ * Communicates with api.groq.com/openai/v1/chat/completions
+ */
+export class GroqProvider extends BaseLLMProvider {
+  constructor({
+    apiKey = process.env.GROQ_API_KEY,
+    model = process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
+  } = {}) {
+    super();
+    this.apiKey = apiKey;
+    this.model = model;
+    this.name = 'groq';
+  }
+
+  async generateContent({ prompt, timeoutMs = 15000, jsonMode = true }) {
+    if (!this.apiKey) {
+      throw new LLMApiError('GROQ_API_KEY is not configured');
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
+    const requestBody = {
+      model: this.model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+      ...(jsonMode ? { response_format: { type: 'json_object' } } : {})
+    };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        let errMessage = `Groq API HTTP Error ${response.status}`;
+        try {
+          const errData = await response.json();
+          if (errData?.error?.message) {
+            errMessage = redactSecrets(errData.error.message);
+          }
+        } catch {
+          // ignore
+        }
+        throw new LLMApiError(errMessage, { statusCode: response.status });
+      }
+
+      const data = await response.json();
+      const content = data?.choices?.[0]?.message?.content;
+
+      if (!content || typeof content !== 'string') {
+        throw new LLMApiError('Groq API returned empty response content');
+      }
+
+      return content;
+    } catch (err) {
+      if (err.name === 'AbortError' || controller.signal.aborted) {
+        throw new LLMTimeoutError(`Groq request timed out after ${timeoutMs}ms`);
+      }
+      if (err instanceof LLMError) {
+        throw err;
+      }
+      throw new LLMApiError(`Groq network request failed: ${redactSecrets(err.message)}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
@@ -411,12 +488,34 @@ export class OpenAIProvider extends BaseLLMProvider {
 }
 
 /**
+ * Resolves the currently active AI provider based on environment variables.
+ * Priority: GROQ_API_KEY -> GEMINI_API_KEY -> OPENAI_API_KEY
+ * @param {Object} [options={}]
+ * @returns {BaseLLMProvider|null}
+ */
+export function getActiveAIProvider(options = {}) {
+  if (process.env.GROQ_API_KEY) {
+    return new GroqProvider(options);
+  }
+  if (process.env.GEMINI_API_KEY) {
+    return new GeminiProvider(options);
+  }
+  if (process.env.OPENAI_API_KEY) {
+    return new OpenAIProvider(options);
+  }
+  return null;
+}
+
+/**
  * Factory to instantiate the desired LLM provider
- * @param {'gemini'|'openai'} [type='gemini']
+ * @param {'groq'|'gemini'|'openai'} [type='gemini']
  * @param {Object} [options={}]
  * @returns {BaseLLMProvider}
  */
 export function createLLMProvider(type = 'gemini', options = {}) {
+  if (type === 'groq') {
+    return new GroqProvider(options);
+  }
   if (type === 'openai') {
     return new OpenAIProvider(options);
   }
@@ -445,7 +544,7 @@ export async function generateRoadmapModules({
   provider = null,
   timeoutMs = null
 }) {
-  const activeProvider = provider || createLLMProvider('gemini');
+  const activeProvider = provider || getActiveAIProvider() || createLLMProvider('gemini');
   const activeTimeout = timeoutMs || Number(process.env.LLM_TIMEOUT_MS) || 15000;
 
   const prompt = buildPrompt({ roleName, dimensionScores, allowedTags });
@@ -467,7 +566,9 @@ export default {
   buildPrompt,
   cleanAndParseLLMResponse,
   createLLMProvider,
+  getActiveAIProvider,
   generateRoadmapModules,
+  GroqProvider,
   GeminiProvider,
   OpenAIProvider,
   LLMError,

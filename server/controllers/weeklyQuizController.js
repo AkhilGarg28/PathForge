@@ -23,11 +23,15 @@ export const getWeeklyQuiz = async (req, res) => {
     const roadmap = await PersonalizedRoadmap.findOne({ userId }).sort({ createdAt: -1 });
     const weekData = roadmap?.weeks?.find((w) => w.weekNumber === weekNumber);
 
+    const targetRole = roadmap?.targetRole || 'MERN Developer';
+    const isDA = targetRole.toLowerCase().includes('data') || targetRole.toLowerCase().includes('analyst');
+    const defaultFocus = isDA ? ['Excel', 'SQL', 'Python'] : ['JavaScript', 'React'];
     const generated = await generateWeeklyQuiz({
       weekNumber,
       weekTitle: weekData?.title || `Week ${weekNumber} Curriculum`,
-      focusSkills: weekData?.focusSkills || ['JavaScript', 'Software Engineering'],
-      difficulty: weekData?.difficulty || 'Intermediate'
+      focusSkills: weekData?.focusSkills || defaultFocus,
+      difficulty: weekData?.difficulty || 'Intermediate',
+      track: isDA ? 'data-analyst' : 'mern'
     });
 
     quiz = await WeeklyQuiz.create({

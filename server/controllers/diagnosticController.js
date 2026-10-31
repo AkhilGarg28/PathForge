@@ -2,6 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Role from '../models/Role.js';
+import User from '../models/User.js';
+import UserProfile from '../models/UserProfile.js';
+import PersonalizedRoadmap from '../models/PersonalizedRoadmap.js';
+import { buildDeterministicRoadmap } from '../services/personalizedRoadmapService.js';
+import { shuffleArray } from '../services/questionSelector.js';
 import Diagnostic from '../models/Diagnostic.js';
 import DiagnosticResult from '../models/DiagnosticResult.js';
 import Roadmap from '../models/Roadmap.js';
@@ -18,51 +23,55 @@ const resourcesPath = path.resolve(__dirname, '../../data/resources.json');
  * GET /api/diagnostic/:roleId
  */
 export const getDiagnostic = async (req, res) => {
-  if (!req.user.roleId) {
-    return res.status(400).json({
-      success: false,
-      message: 'No role assigned to user. Please select a role first.'
-    });
+  let roleSlug = 'mern-developer';
+
+  // 1. Check user profile for preferred targetRole from onboarding
+  const profile = await UserProfile.findOne({ userId: req.user._id }).lean();
+  if (profile?.targetRole) {
+    const isDA = profile.targetRole.toLowerCase().includes('data') || profile.targetRole.toLowerCase().includes('analyst');
+    roleSlug = isDA ? 'data-analyst' : 'mern-developer';
+  } else if (req.user.roleId) {
+    const r = await Role.findById(req.user.roleId).lean();
+    if (r?.slug) roleSlug = r.slug;
   }
 
-  const userRole = await Role.findById(req.user.roleId).select('name slug dimensions').lean();
+  // 2. Check URL parameter override (e.g. /api/diagnostic/data-analyst or /api/diagnostic/mern-developer)
+  const requestedRoleId = (req.params.roleId || '').toLowerCase();
+  if (requestedRoleId.includes('data') || requestedRoleId.includes('analyst')) {
+    roleSlug = 'data-analyst';
+  } else if (requestedRoleId.includes('mern')) {
+    roleSlug = 'mern-developer';
+  }
+
+  // 3. Find role document and ensure User.roleId is in sync
+  let userRole = await Role.findOne({ slug: roleSlug }).select('name slug dimensions').lean();
   if (!userRole) {
-    return res.status(400).json({
+    userRole = await Role.findOne({}).select('name slug dimensions').lean();
+  }
+  if (userRole && String(req.user.roleId) !== String(userRole._id)) {
+    await User.findByIdAndUpdate(req.user._id, { roleId: userRole._id });
+  }
+
+  if (!userRole) {
+    return res.status(404).json({
       success: false,
       message: 'Assigned role does not exist'
     });
   }
 
-  const requestedRoleId = req.params.roleId;
-  const matchesRole =
-    requestedRoleId === userRole.slug || requestedRoleId === userRole._id.toString();
-
-  if (!matchesRole) {
-    return res.status(400).json({
-      success: false,
-      message: "Requested role does not match user's assigned role"
-    });
-  }
-
-  // Check in-memory cache first
-  const cachedDiagnostic = cache.getDiagnostic(userRole.slug);
-  if (cachedDiagnostic) {
-    return res.status(200).json({
-      success: true,
-      data: cachedDiagnostic
-    });
-  }
-
   const diagnostic = await Diagnostic.findOne({ roleId: userRole.slug }).select('questions').lean();
-  if (!diagnostic) {
+  if (!diagnostic || !diagnostic.questions?.length) {
     return res.status(404).json({
       success: false,
       message: 'Diagnostic questions not found for this role'
     });
   }
 
+  // Shuffle questions randomly per attempt so every test is dynamic
+  const shuffledQuestions = shuffleArray(diagnostic.questions);
+
   // Strictly strip correctIndex and explanation before returning to client
-  const sanitizedQuestions = diagnostic.questions.map((q) => ({
+  const sanitizedQuestions = shuffledQuestions.map((q) => ({
     id: q.id,
     dimension: q.dimension,
     question: q.question,
@@ -74,9 +83,6 @@ export const getDiagnostic = async (req, res) => {
     roleTitle: userRole.name,
     questions: sanitizedQuestions
   };
-
-  // Cache sanitized diagnostic questions
-  cache.setDiagnostic(userRole.slug, responseData);
 
   return res.status(200).json({
     success: true,
@@ -91,27 +97,26 @@ export const getDiagnostic = async (req, res) => {
 export const submitDiagnostic = async (req, res) => {
   const { roleId, answers } = req.body;
 
-  if (!req.user.roleId) {
-    return res.status(400).json({
-      success: false,
-      message: 'No role assigned to user. Please select a role first.'
-    });
+  let activeSlug = 'mern-developer';
+  const requested = (roleId || '').toLowerCase();
+  if (requested.includes('data') || requested.includes('analyst')) {
+    activeSlug = 'data-analyst';
+  } else if (requested.includes('mern')) {
+    activeSlug = 'mern-developer';
+  } else {
+    const profile = await UserProfile.findOne({ userId: req.user._id }).lean();
+    if (profile?.targetRole) {
+      const isDA = profile.targetRole.toLowerCase().includes('data') || profile.targetRole.toLowerCase().includes('analyst');
+      activeSlug = isDA ? 'data-analyst' : 'mern-developer';
+    } else if (req.user.roleId) {
+      const r = await Role.findById(req.user.roleId).lean();
+      if (r?.slug) activeSlug = r.slug;
+    }
   }
 
-  const userRole = await Role.findById(req.user.roleId);
+  let userRole = await Role.findOne({ slug: activeSlug });
   if (!userRole) {
-    return res.status(400).json({
-      success: false,
-      message: 'Assigned role does not exist'
-    });
-  }
-
-  const matchesRole = roleId === userRole.slug || roleId === userRole._id.toString();
-  if (!matchesRole) {
-    return res.status(400).json({
-      success: false,
-      message: "Submitted roleId does not match user's assigned role"
-    });
+    userRole = await Role.findOne({});
   }
 
   const diagnostic = await Diagnostic.findOne({ roleId: userRole.slug });
@@ -152,16 +157,13 @@ export const submitDiagnostic = async (req, res) => {
     resourceLibrary = [];
   }
 
-  // Generate learning path modules
+  // Generate learning path modules tailored to track
   const generated = await generateWithFallback({
     role: userRole.slug,
     dimensionScores: scoreResult.dimensionScores,
     resourceLibrary
   });
 
-  // Calculate baseline readiness score using contract formula:
-  // Readiness = round(0.4 * (avgDimensionScore / 5 * 100) + 0.6 * (completedHours / totalHours * 100))
-  // Since all modules are initially active/locked (none completed), completedHours = 0
   const initialReadiness = Math.round(0.4 * ((scoreResult.overall / 5) * 100));
 
   // Race-safe upsert: replace any previous roadmap for this user
@@ -176,6 +178,35 @@ export const submitDiagnostic = async (req, res) => {
       generatedBy: generated.generatedBy
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  // Synchronize with PersonalizedRoadmap for the multi-week view
+  const targetRoleTitle = userRole.slug === 'data-analyst' ? 'Data Analyst' : 'MERN Developer';
+  const personalizedRoadmapData = buildDeterministicRoadmap({
+    targetRole: targetRoleTitle,
+    claimVerifications: []
+  });
+
+  const personalized = await PersonalizedRoadmap.findOneAndUpdate(
+    { userId: req.user._id },
+    {
+      userId: req.user._id,
+      targetRole: targetRoleTitle,
+      version: 1,
+      totalWeeks: personalizedRoadmapData.totalWeeks,
+      currentWeek: 1,
+      currentWeekNumber: 1,
+      progressPercent: 0,
+      readinessScore: initialReadiness,
+      phases: personalizedRoadmapData.phases,
+      weeks: personalizedRoadmapData.weeks
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  await UserProfile.findOneAndUpdate(
+    { userId: req.user._id },
+    { activeRoadmapId: personalized._id }
   );
 
   return res.status(200).json({

@@ -117,7 +117,7 @@ export function PersonalizedDashboardPage() {
               Welcome to Your Learning Journey!
             </h1>
             <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-6)' }}>
-              You have not generated your personalized 12-week roadmap yet. Start with our intelligent onboarding to extract your skills and build a tailored learning path.
+              You have not generated your personalized roadmap yet. Start with our intelligent onboarding to extract your skills and build a tailored learning path.
             </p>
             <Button variant="primary" size="lg" onClick={() => navigate('/onboarding')}>
               Start Personalized Onboarding →
@@ -178,7 +178,7 @@ export function PersonalizedDashboardPage() {
               </span>
             </div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '4px 0' }}>
-              {roadmap.title || '12-Week Master Curriculum'}
+              {roadmap.title || 'Master Curriculum'}
             </h1>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', margin: 0 }}>
               Active on <strong>Week {roadmap.currentWeekNumber || 1}</strong> of {roadmap.totalWeeks || 12} •{' '}
@@ -240,7 +240,7 @@ export function PersonalizedDashboardPage() {
           })}
         </div>
 
-        {/* TAB 1: MY ROADMAP (12-Week Multi-Phase View) */}
+        {/* TAB 1: MY ROADMAP (Multi-Phase View) */}
         {activeTab === 'roadmap' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             {roadmap.weeks?.map((w) => {

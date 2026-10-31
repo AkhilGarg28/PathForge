@@ -3,7 +3,7 @@
  * Extracts technical skills, claimed levels, frameworks, tools, and missing skills for target career.
  */
 
-import { GeminiProvider } from './llmService.js';
+import { getActiveAIProvider, GeminiProvider } from './llmService.js';
 
 // Common technical skill dictionary for deterministic fallback
 const TECH_DICTIONARY = {
@@ -14,7 +14,7 @@ const TECH_DICTIONARY = {
 };
 
 /**
- * Deterministic keyword-based parser fallback if Gemini API is unreachable
+ * Deterministic keyword-based parser fallback if LLM API is unreachable
  */
 export function deterministicResumeParse(resumeText = '', targetRole = 'Full Stack Developer') {
   const lower = resumeText.toLowerCase();
@@ -119,7 +119,7 @@ export function deterministicResumeParse(resumeText = '', targetRole = 'Full Sta
 }
 
 /**
- * Analyzes resume using Gemini AI with fallback
+ * Analyzes resume using AI with fallback
  */
 export async function analyzeResumeWithAI({ resumeText, targetRole = 'Full Stack Developer' }) {
   if (!resumeText || resumeText.trim().length === 0) {
@@ -127,8 +127,8 @@ export async function analyzeResumeWithAI({ resumeText, targetRole = 'Full Stack
   }
 
   try {
-    if (process.env.GEMINI_API_KEY) {
-      const provider = new GeminiProvider();
+    const provider = getActiveAIProvider();
+    if (provider) {
       const prompt = `You are an elite technical talent evaluator and curriculum analyst.
 Analyze the following candidate resume text for someone targeting the career role of "${targetRole}".
 

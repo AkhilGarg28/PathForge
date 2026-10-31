@@ -29,7 +29,8 @@ export function ToastProvider({ children }) {
       info: (msg, duration) => addToast({ type: 'info', message: msg, duration }),
       success: (msg, duration) => addToast({ type: 'success', message: msg, duration }),
       error: (msg, duration) => addToast({ type: 'error', message: msg, duration }),
-      warning: (msg, duration) => addToast({ type: 'warning', message: msg, duration })
+      warning: (msg, duration) => addToast({ type: 'warning', message: msg, duration }),
+      showToast: (msg, type = 'info') => addToast({ type, message: msg })
     }),
     [addToast]
   );

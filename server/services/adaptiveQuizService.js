@@ -4,7 +4,8 @@
  * current week curriculum, past mistakes, and weak topics.
  */
 
-import { GeminiProvider } from './llmService.js';
+import { getActiveAIProvider, GeminiProvider } from './llmService.js';
+import { selectQuizQuestions } from './questionSelector.js';
 
 // Curated question pools by week number for deterministic fallback
 const CURATED_WEEKLY_QUESTIONS = {
@@ -175,10 +176,10 @@ const CURATED_WEEKLY_QUESTIONS = {
 /**
  * Generates an adaptive weekly quiz
  */
-export async function generateWeeklyQuiz({ weekNumber, weekTitle, focusSkills = [], weakTopics = [], difficulty = 'Intermediate' }) {
+export async function generateWeeklyQuiz({ weekNumber, weekTitle, focusSkills = [], weakTopics = [], difficulty = 'Intermediate', track = 'mern' }) {
   try {
-    if (process.env.GEMINI_API_KEY) {
-      const provider = new GeminiProvider();
+    const provider = getActiveAIProvider();
+    if (provider) {
       const prompt = `You are a curriculum assessment expert.
 Generate a dynamic, rigorous 8-question weekly assessment for Week ${weekNumber}: "${weekTitle}".
 Target focus skills: ${focusSkills.join(', ')}.
@@ -224,13 +225,20 @@ Return ONLY a valid JSON array of question objects matching this schema:
     console.warn(`[AdaptiveQuizService] AI dynamic quiz generation failed (${err.message}). Using curated week ${weekNumber} question pool.`);
   }
 
-  // Fallback to curated pool
-  const fallbackQuestions = CURATED_WEEKLY_QUESTIONS[weekNumber] || CURATED_WEEKLY_QUESTIONS[1];
+  // Fallback to track-specific questions
+  const isDataAnalyst = String(track || '').toLowerCase().includes('data') || String(track || '').toLowerCase().includes('analyst');
+  const activeTrack = isDataAnalyst ? 'data-analyst' : 'mern';
+  const selected = selectQuizQuestions({
+    track: activeTrack,
+    difficulty,
+    count: 8,
+    focusSkills
+  });
   return {
     weekNumber,
     title: `Week ${weekNumber} Mastery Assessment: ${weekTitle}`,
     difficulty,
-    questions: fallbackQuestions
+    questions: selected.questions
   };
 }
 

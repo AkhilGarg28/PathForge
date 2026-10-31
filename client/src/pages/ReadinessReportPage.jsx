@@ -40,7 +40,7 @@ export function ReadinessReportPage() {
     try {
       setGenerating(true);
       await api.generatePersonalizedRoadmap();
-      showToast('12-Week Bespoke Roadmap generated successfully!', 'success');
+      showToast('Bespoke Roadmap generated successfully!', 'success');
       navigate('/dashboard');
     } catch (err) {
       showToast(err.message || 'Failed to generate roadmap', 'error');
@@ -249,7 +249,7 @@ export function ReadinessReportPage() {
         <Card>
           <div style={{ textAlign: 'center', padding: 'var(--space-4)' }}>
             <h2 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '8px' }}>
-              Ready to Generate Your 12-Week Bespoke Roadmap?
+              Ready to Generate Your Bespoke Roadmap?
             </h2>
             <p style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', maxWidth: '560px', margin: '0 auto var(--space-6)' }}>
               PathForge will now synthesize your verified skills, goal timeline, and detected weak areas into a day-by-day learning curriculum with practical coding exercises and weekly adaptive assessments.
@@ -264,7 +264,7 @@ export function ReadinessReportPage() {
             >
               {generating ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Spinner size="sm" /> Generating 12-Week Roadmap...
+                  <Spinner size="sm" /> Generating Roadmap...
                 </span>
               ) : (
                 'Generate My Personalized Roadmap →'

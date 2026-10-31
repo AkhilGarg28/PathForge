@@ -3,7 +3,9 @@ import {
   buildPrompt,
   cleanAndParseLLMResponse,
   createLLMProvider,
+  getActiveAIProvider,
   generateRoadmapModules,
+  GroqProvider,
   GeminiProvider,
   OpenAIProvider,
   LLMError,
@@ -227,7 +229,55 @@ describe('LLM Service Suite (Mocked HTTP)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 3. GeminiProvider
+  // 3. GroqProvider
+  // -------------------------------------------------------------------------
+  describe('GroqProvider', () => {
+    test('throws LLMApiError if GROQ_API_KEY is missing', async () => {
+      const provider = new GroqProvider({ apiKey: '' });
+      await expect(provider.generateContent({ prompt: 'test' })).rejects.toThrow(LLMApiError);
+    });
+
+    test('makes POST request with Authorization Bearer and json_object response format', async () => {
+      const mockContent = JSON.stringify({ modules: [{ moduleId: 'm-1', title: 'T1' }] });
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: mockContent } }]
+        })
+      });
+
+      const provider = new GroqProvider({
+        apiKey: 'groq-test-key-12345',
+        model: 'openai/gpt-oss-120b'
+      });
+      const text = await provider.generateContent({ prompt: 'test prompt' });
+
+      expect(text).toBe(mockContent);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      const [calledUrl, calledInit] = mockFetch.mock.calls[0];
+      expect(calledUrl).toBe('https://api.groq.com/openai/v1/chat/completions');
+      expect(calledInit.headers.Authorization).toBe('Bearer groq-test-key-12345');
+      expect(calledInit.headers['Content-Type']).toBe('application/json');
+
+      const body = JSON.parse(calledInit.body);
+      expect(body.response_format).toEqual({ type: 'json_object' });
+    });
+
+    test('throws LLMApiError with status code on non-ok HTTP response', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: { message: 'Invalid API Key' } })
+      });
+
+      const provider = new GroqProvider({ apiKey: 'invalid-key' });
+      await expect(provider.generateContent({ prompt: 'test' })).rejects.toThrow(LLMApiError);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 4. GeminiProvider
   // -------------------------------------------------------------------------
   describe('GeminiProvider', () => {
     test('throws LLMApiError if GEMINI_API_KEY is missing', async () => {
@@ -316,7 +366,7 @@ describe('LLM Service Suite (Mocked HTTP)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 4. OpenAIProvider
+  // 5. OpenAIProvider
   // -------------------------------------------------------------------------
   describe('OpenAIProvider', () => {
     test('throws LLMApiError if OPENAI_API_KEY is missing', async () => {
@@ -352,13 +402,39 @@ describe('LLM Service Suite (Mocked HTTP)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 5. createLLMProvider & generateRoadmapModules
+  // 6. createLLMProvider & getActiveAIProvider & generateRoadmapModules
   // -------------------------------------------------------------------------
   describe('Provider Factory & Orchestrator', () => {
     test('createLLMProvider instantiates correct provider class', () => {
+      expect(createLLMProvider('groq')).toBeInstanceOf(GroqProvider);
       expect(createLLMProvider('gemini')).toBeInstanceOf(GeminiProvider);
       expect(createLLMProvider('openai')).toBeInstanceOf(OpenAIProvider);
       expect(createLLMProvider('default')).toBeInstanceOf(GeminiProvider);
+    });
+
+    test('getActiveAIProvider resolves provider by priority', () => {
+      const origGroq = process.env.GROQ_API_KEY;
+      const origGemini = process.env.GEMINI_API_KEY;
+      const origOpenAI = process.env.OPENAI_API_KEY;
+
+      delete process.env.GROQ_API_KEY;
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+      expect(getActiveAIProvider()).toBeNull();
+
+      process.env.OPENAI_API_KEY = 'test-openai';
+      expect(getActiveAIProvider()).toBeInstanceOf(OpenAIProvider);
+
+      process.env.GEMINI_API_KEY = 'test-gemini';
+      expect(getActiveAIProvider()).toBeInstanceOf(GeminiProvider);
+
+      process.env.GROQ_API_KEY = 'test-groq';
+      expect(getActiveAIProvider()).toBeInstanceOf(GroqProvider);
+
+      // Restore
+      if (origGroq) process.env.GROQ_API_KEY = origGroq; else delete process.env.GROQ_API_KEY;
+      if (origGemini) process.env.GEMINI_API_KEY = origGemini; else delete process.env.GEMINI_API_KEY;
+      if (origOpenAI) process.env.OPENAI_API_KEY = origOpenAI; else delete process.env.OPENAI_API_KEY;
     });
 
     test('generateRoadmapModules orchestrates prompt, mock provider, and defensive parsing', async () => {
@@ -402,7 +478,7 @@ describe('LLM Service Suite (Mocked HTTP)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 6. Secret Redaction & Typed Error Shapes
+  // 7. Secret Redaction & Typed Error Shapes
   // -------------------------------------------------------------------------
   describe('Security & Error Shapes', () => {
     test('redactSecrets sanitizes API keys from error messages', () => {

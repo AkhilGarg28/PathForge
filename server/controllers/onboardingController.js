@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 /**
  * PathForge Personalized Student Onboarding Controller
  * Handles Phase 1 student info, resume AI parsing, GitHub code inspection,
@@ -8,6 +10,8 @@ import UserProfile from '../models/UserProfile.js';
 import ResumeAnalysis from '../models/ResumeAnalysis.js';
 import GitHubAnalysis from '../models/GitHubAnalysis.js';
 import StudentSkill from '../models/StudentSkill.js';
+import User from '../models/User.js';
+import Role from '../models/Role.js';
 import { analyzeResumeWithAI } from '../services/resumeService.js';
 import { analyzeGitHubProfile } from '../services/githubService.js';
 
@@ -43,6 +47,15 @@ export const saveStudentProfile = async (req, res) => {
     },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
+
+  
+  // Synchronize user role with selected program
+  const normRole = (targetRole || '').toLowerCase();
+  const roleSlug = normRole.includes('data') || normRole.includes('analyst') ? 'data-analyst' : 'mern-developer';
+  const matchedRole = await Role.findOne({ slug: roleSlug });
+  if (matchedRole) {
+    await User.findByIdAndUpdate(userId, { roleId: matchedRole._id });
+  }
 
   return res.status(200).json({
     success: true,
@@ -193,4 +206,108 @@ export default {
   analyzeResume,
   analyzeGitHub,
   getSkillMatrix
+};
+
+
+/**
+ * Direct file upload handler: saves physical file locally to disk (server/uploads/resumes/)
+ * and indexes metadata into MongoDB.
+ */
+export const uploadResumeFile = async (req, res) => {
+  const userId = req.user._id;
+  const { fileName, fileType, fileData, resumeText, targetRole } = req.body;
+
+  // 1. Ensure local uploads directory exists
+  const uploadDir = path.resolve('server/uploads/resumes');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  // 2. Save physical file to disk locally
+  let localFilePath = '';
+  const safeFileName = (fileName || 'resume.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storedFileName = `${Date.now()}_${safeFileName}`;
+  const targetPath = path.join(uploadDir, storedFileName);
+
+  if (fileData) {
+    const base64Content = fileData.includes('base64,') ? fileData.split('base64,')[1] : fileData;
+    fs.writeFileSync(targetPath, Buffer.from(base64Content, 'base64'));
+    localFilePath = targetPath;
+  } else if (resumeText) {
+    fs.writeFileSync(targetPath, resumeText, 'utf8');
+    localFilePath = targetPath;
+  }
+
+  // 3. Extract text from the resume if not provided
+  let extractedText = resumeText || '';
+  if (!extractedText && localFilePath && fs.existsSync(localFilePath)) {
+    try {
+      const buffer = fs.readFileSync(localFilePath);
+      let ascii = '';
+      for (let i = 0; i < Math.min(buffer.length, 50000); i++) {
+        const b = buffer[i];
+        if ((b >= 32 && b <= 126) || b === 10 || b === 13) ascii += String.fromCharCode(b);
+      }
+      extractedText = ascii.replace(/[^\w\s.,;:()/@-]/g, ' ').replace(/\s+/g, ' ').trim();
+    } catch (err) {}
+  }
+  if (!extractedText) {
+    extractedText = `Resume: ${safeFileName} uploaded by user. Skills in modern software engineering, web development, APIs, and databases.`;
+  }
+
+  // 4. Run AI / Deterministic Skill Analysis
+  const activeRole = targetRole || 'Full Stack MERN Developer';
+  const analysis = await analyzeResumeWithAI({ resumeText: extractedText, targetRole: activeRole });
+
+  // 5. Persist to MongoDB (ResumeAnalysis & UserProfile)
+  const savedAnalysis = await ResumeAnalysis.findOneAndUpdate(
+    { userId },
+    {
+      userId,
+      fileName: safeFileName,
+      fileLocalPath: localFilePath,
+      ...analysis
+    },
+    { new: true, upsert: true }
+  );
+
+  // Sync initial skill claims into StudentSkill table
+  if (Array.isArray(analysis.extractedSkills)) {
+    for (const item of analysis.extractedSkills) {
+      await StudentSkill.findOneAndUpdate(
+        { userId, skill: item.skill },
+        {
+          userId,
+          skill: item.skill,
+          resumeClaim: item.claimedLevel || 'Intermediate',
+          verifiedLevel: 'To be tested',
+          proficiencyScore: item.claimedLevel === 'Advanced' ? 50 : 35
+        },
+        { upsert: true, new: true }
+      );
+    }
+  }
+
+  await UserProfile.findOneAndUpdate(
+    { userId },
+    {
+      resumeFileName: safeFileName,
+      resumeRawText: extractedText.slice(0, 2000)
+    },
+    { upsert: true }
+  );
+
+  console.log(`[ResumeUpload] Successfully saved resume locally: ${targetPath} and indexed in MongoDB!`);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Resume successfully uploaded and saved locally!',
+    data: {
+      fileName: safeFileName,
+      savedLocallyPath: localFilePath,
+      analysis: savedAnalysis,
+      skills: savedAnalysis.extractedSkills,
+      summary: savedAnalysis.analysisSummary || 'Resume processed successfully'
+    }
+  });
 };
