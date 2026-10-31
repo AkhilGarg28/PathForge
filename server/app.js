@@ -31,15 +31,32 @@ app.set('trust proxy', 1);
 // Security HTTP headers
 app.use(helmet());
 
-// CORS configuration supporting credentials from frontend origin (strictly disallow wildcards)
-const clientOrigin = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, '');
-if (clientOrigin === '*') {
-  throw new Error("CORS wildcard origin '*' is strictly prohibited when credentials are enabled.");
-}
+// CORS configuration supporting credentials from frontend origins (local, Vercel, and configured CLIENT_URL)
+const configuredClientUrl = (process.env.CLIENT_URL || '').replace(/\/+$/, '');
 
 app.use(
   cors({
-    origin: clientOrigin,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, Postman, health probes)
+      if (!origin) return callback(null, true);
+
+      // Allow configured CLIENT_URL
+      if (configuredClientUrl && origin === configuredClientUrl) {
+        return callback(null, true);
+      }
+
+      // Allow all localhost origins
+      if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow all Vercel deployment domains (*.vercel.app)
+      if (/^https:\/\/.*\.vercel\.app$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
